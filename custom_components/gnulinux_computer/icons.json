@@ -1,0 +1,94 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "unit": {
+        "default": "mdi:cog"
+      },
+      "reboot_required": {
+        "default": "mdi:restart",
+        "state": {
+          "on": "mdi:restart-alert"
+        }
+      }
+    },
+    "sensor": {
+      "failed_units": {
+        "default": "mdi:alert-circle-outline"
+      },
+      "system_state": {
+        "default": "mdi:heart-pulse"
+      },
+      "load_1m": {
+        "default": "mdi:chip"
+      },
+      "memory_used": {
+        "default": "mdi:memory"
+      },
+      "updates": {
+        "default": "mdi:package-up"
+      },
+      "last_check": {
+        "default": "mdi:update"
+      },
+      "volume": {
+        "default": "mdi:harddisk"
+      },
+      "services_running": {
+        "default": "mdi:play-circle-outline"
+      },
+      "services_enabled": {
+        "default": "mdi:check-circle-outline"
+      },
+      "services_disabled": {
+        "default": "mdi:minus-circle-outline"
+      }
+    },
+    "update": {
+      "container": {
+        "default": "mdi:docker"
+      },
+      "flatpak": {
+        "default": "mdi:package-variant"
+      },
+      "firmware": {
+        "default": "mdi:chip"
+      }
+    },
+    "select": {
+      "power": {
+        "default": "mdi:power",
+        "state": {
+          "on": "mdi:power-on",
+          "suspend": "mdi:power-sleep",
+          "hibernate": "mdi:harddisk",
+          "poweroff": "mdi:power-off",
+          "reboot": "mdi:restart"
+        }
+      }
+    },
+    "button": {
+      "check_updates": {
+        "default": "mdi:refresh"
+      },
+      "screenshot": {
+        "default": "mdi:monitor-screenshot"
+      },
+      "update_all": {
+        "default": "mdi:update"
+      }
+    },
+    "image": {
+      "screenshot": {
+        "default": "mdi:monitor-screenshot"
+      }
+    }
+  },
+  "services": {
+    "service_control": {
+      "service": "mdi:cog-play"
+    },
+    "take_screenshot": {
+      "service": "mdi:monitor-screenshot"
+    }
+  }
+}

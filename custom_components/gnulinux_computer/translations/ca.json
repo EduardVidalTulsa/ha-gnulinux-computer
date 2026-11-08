@@ -1,0 +1,212 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ordinador GNU+Linux",
+        "description": "Connexió SSH a l'ordinador. L'usuari ha de poder fer servir sudo (grup wheel/sudo).",
+        "data": {
+          "host": "Adreça",
+          "port": "Port",
+          "username": "Usuari",
+          "auth_method": "Autenticació"
+        }
+      },
+      "password": {
+        "title": "Contrasenya",
+        "description": "Contrasenya de {user}@{host}. També es fa servir per a sudo.",
+        "data": {
+          "password": "Contrasenya"
+        }
+      },
+      "key_file": {
+        "title": "Clau SSH",
+        "description": "Camí de la clau privada dins de Home Assistant (p. ex. /config/.ssh/...). La contrasenya de sudo només cal si sudo la demana.",
+        "data": {
+          "key_path": "Clau privada",
+          "sudo_password": "Contrasenya de sudo (opcional)"
+        }
+      },
+      "generate_key": {
+        "title": "Clau SSH nova",
+        "description": "Afegeix aquesta clau pública a `~/.ssh/authorized_keys` de **{user}** a **{host}**:\n\n`{pubkey}`\n\nPer exemple:\n\n`{command}`\n\nDesprés prem Envia.",
+        "data": {
+          "sudo_password": "Contrasenya de sudo (opcional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No s'ha pogut connectar",
+      "invalid_auth": "Autenticació incorrecta",
+      "invalid_key": "No s'ha pogut llegir la clau privada",
+      "no_sudo": "L'usuari no pot fer servir sudo (afegeix-lo al grup wheel o indica la contrasenya de sudo)"
+    },
+    "abort": {
+      "already_configured": "Aquest ordinador ja està configurat; s'han actualitzat les dades de connexió"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcions",
+        "data": {
+          "units": "Serveis a monitorar",
+          "notify": "Notifica les actualitzacions noves",
+          "update_interval": "Interval de comprovació d'actualitzacions",
+          "status_interval": "Interval d'estat",
+          "mac": "MAC per a Wake-on-LAN",
+          "broadcast_address": "Adreça de difusió WoL"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "MAC invàlida"
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "password": "Usuari i contrasenya",
+        "key_file": "Clau SSH existent",
+        "generate_key": "Genera una clau SSH nova"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "En línia"
+      },
+      "unit": {
+        "name": "Servei {unit}"
+      },
+      "reboot_required": {
+        "name": "Cal reiniciar"
+      }
+    },
+    "sensor": {
+      "failed_units": {
+        "name": "Serveis fallats"
+      },
+      "system_state": {
+        "name": "Estat del sistema"
+      },
+      "boot_time": {
+        "name": "Darrer arrencada"
+      },
+      "load_1m": {
+        "name": "Càrrega (1 min)"
+      },
+      "memory_used": {
+        "name": "Memòria usada"
+      },
+      "updates": {
+        "name": "Actualitzacions pendents"
+      },
+      "last_check": {
+        "name": "Darrera comprovació d'actualitzacions"
+      },
+      "volume": {
+        "name": "Volum {mount}"
+      },
+      "services_running": {
+        "name": "Serveis en marxa"
+      },
+      "services_enabled": {
+        "name": "Serveis activats"
+      },
+      "services_disabled": {
+        "name": "Serveis desactivats"
+      }
+    },
+    "update": {
+      "pacman": {
+        "name": "Paquets del sistema (pacman)"
+      },
+      "aur": {
+        "name": "AUR"
+      },
+      "dnf": {
+        "name": "Paquets del sistema (DNF)"
+      },
+      "zypper": {
+        "name": "Paquets del sistema (zypper)"
+      },
+      "apt": {
+        "name": "Paquets del sistema (APT)"
+      },
+      "flatpak": {
+        "name": "Flatpak"
+      },
+      "snap": {
+        "name": "Snap"
+      },
+      "firmware": {
+        "name": "Microprogramari (fwupd)"
+      },
+      "container": {
+        "name": "Contenidor {name}"
+      }
+    },
+    "select": {
+      "power": {
+        "name": "Energia",
+        "state": {
+          "on": "Encès",
+          "suspend": "Suspès (RAM)",
+          "hibernate": "Hibernat (disc)",
+          "poweroff": "Apagat",
+          "reboot": "Reinici"
+        }
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Reinicia"
+      },
+      "check_updates": {
+        "name": "Comprova actualitzacions"
+      },
+      "screenshot": {
+        "name": "Captura de pantalla"
+      },
+      "update_all": {
+        "name": "Actualitza-ho tot"
+      }
+    },
+    "image": {
+      "screenshot": {
+        "name": "Captura de pantalla"
+      }
+    }
+  },
+  "services": {
+    "service_control": {
+      "name": "Control de servei",
+      "description": "Inicia, atura, reinicia, activa o desactiva un servei de l'ordinador.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ordinador",
+          "description": "Ordinador on actuar."
+        },
+        "unit": {
+          "name": "Servei",
+          "description": "Nom del servei (p. ex. sshd.service)."
+        },
+        "command": {
+          "name": "Ordre",
+          "description": "Què fer amb el servei."
+        }
+      }
+    },
+    "take_screenshot": {
+      "name": "Captura de pantalla",
+      "description": "Fa una captura de la sessió gràfica activa.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ordinador",
+          "description": "Ordinador on fer la captura."
+        }
+      }
+    }
+  }
+}

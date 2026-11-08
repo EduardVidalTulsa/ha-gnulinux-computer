@@ -1,0 +1,212 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GNU+Linux computer",
+        "description": "SSH connection to the computer. The user must be able to use sudo (wheel/sudo group).",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "username": "Username",
+          "auth_method": "Authentication"
+        }
+      },
+      "password": {
+        "title": "Password",
+        "description": "Password for {user}@{host}. Also used for sudo.",
+        "data": {
+          "password": "Password"
+        }
+      },
+      "key_file": {
+        "title": "SSH key",
+        "description": "Path of the private key inside Home Assistant (e.g. /config/.ssh/...). The sudo password is only needed if sudo asks for one.",
+        "data": {
+          "key_path": "Private key",
+          "sudo_password": "Sudo password (optional)"
+        }
+      },
+      "generate_key": {
+        "title": "New SSH key",
+        "description": "Add this public key to `~/.ssh/authorized_keys` of **{user}** on **{host}**:\n\n`{pubkey}`\n\nFor example:\n\n`{command}`\n\nThen press Submit.",
+        "data": {
+          "sudo_password": "Sudo password (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect",
+      "invalid_auth": "Invalid authentication",
+      "invalid_key": "Cannot read the private key",
+      "no_sudo": "The user cannot use sudo (add it to the wheel group or provide the sudo password)"
+    },
+    "abort": {
+      "already_configured": "This computer is already configured; connection data updated"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": {
+          "units": "Services to monitor",
+          "notify": "Notify about new updates",
+          "update_interval": "Update check interval",
+          "status_interval": "Status interval",
+          "mac": "Wake-on-LAN MAC",
+          "broadcast_address": "WoL broadcast address"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "Invalid MAC"
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "password": "Username and password",
+        "key_file": "Existing SSH key",
+        "generate_key": "Generate a new SSH key"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "Online"
+      },
+      "unit": {
+        "name": "Service {unit}"
+      },
+      "reboot_required": {
+        "name": "Reboot required"
+      }
+    },
+    "sensor": {
+      "failed_units": {
+        "name": "Failed services"
+      },
+      "system_state": {
+        "name": "System state"
+      },
+      "boot_time": {
+        "name": "Last boot"
+      },
+      "load_1m": {
+        "name": "Load (1 min)"
+      },
+      "memory_used": {
+        "name": "Memory used"
+      },
+      "updates": {
+        "name": "Pending updates"
+      },
+      "last_check": {
+        "name": "Last update check"
+      },
+      "volume": {
+        "name": "Volume {mount}"
+      },
+      "services_running": {
+        "name": "Running services"
+      },
+      "services_enabled": {
+        "name": "Enabled services"
+      },
+      "services_disabled": {
+        "name": "Disabled services"
+      }
+    },
+    "update": {
+      "pacman": {
+        "name": "System packages (pacman)"
+      },
+      "aur": {
+        "name": "AUR"
+      },
+      "dnf": {
+        "name": "System packages (DNF)"
+      },
+      "zypper": {
+        "name": "System packages (zypper)"
+      },
+      "apt": {
+        "name": "System packages (APT)"
+      },
+      "flatpak": {
+        "name": "Flatpak"
+      },
+      "snap": {
+        "name": "Snap"
+      },
+      "firmware": {
+        "name": "Firmware (fwupd)"
+      },
+      "container": {
+        "name": "Container {name}"
+      }
+    },
+    "select": {
+      "power": {
+        "name": "Power",
+        "state": {
+          "on": "On",
+          "suspend": "Suspended (RAM)",
+          "hibernate": "Hibernated (disk)",
+          "poweroff": "Off",
+          "reboot": "Reboot"
+        }
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Reboot"
+      },
+      "check_updates": {
+        "name": "Check for updates"
+      },
+      "screenshot": {
+        "name": "Take screenshot"
+      },
+      "update_all": {
+        "name": "Update all"
+      }
+    },
+    "image": {
+      "screenshot": {
+        "name": "Screenshot"
+      }
+    }
+  },
+  "services": {
+    "service_control": {
+      "name": "Service control",
+      "description": "Start, stop, restart, enable or disable a service on the computer.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Computer",
+          "description": "Computer to act on."
+        },
+        "unit": {
+          "name": "Service",
+          "description": "Service name (e.g. sshd.service)."
+        },
+        "command": {
+          "name": "Command",
+          "description": "What to do with the service."
+        }
+      }
+    },
+    "take_screenshot": {
+      "name": "Take screenshot",
+      "description": "Takes a screenshot of the active graphical session.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Computer",
+          "description": "Computer to capture."
+        }
+      }
+    }
+  }
+}

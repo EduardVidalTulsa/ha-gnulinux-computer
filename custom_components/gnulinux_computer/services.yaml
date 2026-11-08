@@ -1,0 +1,24 @@
+service_control:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: gnulinux_computer
+    unit:
+      required: true
+      example: sshd.service
+      selector:
+        text:
+    command:
+      required: true
+      selector:
+        select:
+          options: [start, stop, restart, reload, enable, disable]
+take_screenshot:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: gnulinux_computer
