@@ -37,6 +37,12 @@ from .const import (
 from .power import SLOW_INTERVAL, PowerValues, RaplTracker, compute as compute_power
 from .registry import check_digests
 from .remote import (
+    JOBS_RUNNING_SCRIPT,
+    PACMAN_PREFLIGHT,
+    JobState,
+    job_start_script,
+    job_status_script,
+    parse_job_status,
     CONTAINERS_SCRIPT,
     DETECT_SCRIPT,
     SCREENSHOT_SCRIPT,
@@ -69,6 +75,10 @@ BACKEND_LABELS = {
     "snap": "Snap",
     "firmware": "Firmware (fwupd)",
 }
+
+JOB_ALL = "all"
+JOB_POLL = 15  # seconds between checks of a running install
+JOB_TIMEOUT = 4 * 3600
 
 # System packages first, then the AUR (may depend on them), then the rest.
 INSTALL_ORDER = ("pacman", "dnf", "zypper", "apt", "aur", "flatpak", "snap")
@@ -296,33 +306,67 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
         tool = data.tools.get(target) if data else None
         if not tool:
             raise HomeAssistantError(f"Gestor {target} no disponible")
-        return install_script(target, tool)
+        script = install_script(target, tool)
+        if target in ("pacman", "aur"):
+            script = PACMAN_PREFLIGHT + script
+        return script
 
-    async def _run_install(self, target: str) -> None:
-        """Run one install; raise HomeAssistantError on failure. No refresh."""
-        script = self._install_command(target)
-        self.installing.add(target)
+    # ---------------------------------------------------------------- jobs
+    # Installs run detached on the computer (see remote.job_start_script), so
+    # a restart of Home Assistant or a dropped connection does not kill them.
+
+    async def _start_job(self, job: str, payload: str) -> None:
+        try:
+            res = await self.client.run(job_start_script(job, payload), timeout=60)
+        except (CannotConnect, CommandError) as err:
+            raise HomeAssistantError(f"No s'ha pogut començar l'actualització: {err}") from err
+        out = str(res.stdout)
+        if "@busy" in out:
+            busy = out.split("@busy", 1)[1].split()[0]
+            raise HomeAssistantError(
+                f"Ja hi ha una actualització en marxa a {self.config_entry.title} ({busy})"
+            )
+        if "@started" not in out:
+            raise HomeAssistantError(
+                f"No s'ha pogut començar l'actualització: {res.stderr.strip() or out.strip()}"
+            )
+
+    async def _wait_job(self, job: str) -> JobState:
+        """Poll a detached job until it ends. Tolerates the computer being unreachable."""
+        deadline = time.monotonic() + JOB_TIMEOUT
+        while time.monotonic() < deadline:
+            await asyncio.sleep(JOB_POLL)
+            try:
+                res = await self.client.run(job_status_script(job), timeout=30)
+            except (CannotConnect, CommandError):
+                continue  # rebooting, network blip... keep waiting
+            st = parse_job_status(str(res.stdout))
+            if st.state != "running":
+                return st
+        return JobState("timeout", None, "")
+
+    async def _run_job(self, job: str, payload: str, targets: list[str], *, start: bool = True) -> JobState:
+        self.installing.update(targets)
         self.async_update_listeners()
         try:
-            res = await self.client.run(script, timeout=3 * 3600)
-        except (CannotConnect, CommandError) as err:
-            raise HomeAssistantError(f"Error actualitzant {target}: {err}") from err
+            if start:
+                await self._start_job(job, payload)
+            return await self._wait_job(job)
         finally:
-            self.installing.discard(target)
+            self.installing.difference_update(targets)
             self.async_update_listeners()
-        if not res.ok:
-            tail = (res.stderr.strip() or str(res.stdout).strip())[-800:]
-            raise HomeAssistantError(f"L'actualització de {target} ha fallat: {tail}")
 
     async def async_install(self, target: str) -> None:
         """Install updates for a backend key or a container key ("ct:<key>")."""
         if not self.status.online:
             raise HomeAssistantError(f"{self.config_entry.title} no és accessible")
+        payload = self._install_command(target)
         try:
-            await self._run_install(target)
+            st = await self._run_job(target, payload, [target])
         finally:
             # AUR packages often depend on repo ones; re-check everything.
             await self.async_refresh()
+        self._report(st, {target: st.rc})
 
     def pending_targets(self) -> list[str]:
         """Targets with pending updates, in a safe installation order."""
@@ -342,7 +386,7 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
         return targets
 
     async def async_install_all(self) -> None:
-        """Install every pending update, one source after another."""
+        """Install every pending update, one source after another, in one detached job."""
         if not self.status.online:
             raise HomeAssistantError(f"{self.config_entry.title} no és accessible")
         if self.updating_all:
@@ -350,32 +394,86 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
         targets = self.pending_targets()
         if not targets:
             return
+        parts = []
+        for target in targets:
+            body = self._install_command(target)
+            parts.append(
+                f'echo "@@target {target}"\n( {body}\n)\necho "@@rc {target} $?"'
+            )
+        payload = "\n".join(parts) + "\nexit 0"
         self.updating_all = True
-        self.installing.update(targets)
-        self.async_update_listeners()
-        errors: list[str] = []
         try:
-            for target in targets:
-                try:
-                    await self._run_install(target)
-                except HomeAssistantError as err:
-                    _LOGGER.error("%s: %s", self.config_entry.title, err)
-                    errors.append(str(err))
-                    if not self.status.online:
-                        break
+            st = await self._run_job(JOB_ALL, payload, targets)
         finally:
             self.updating_all = False
-            self.installing.difference_update(targets)
             await self.async_refresh()
-        if errors:
-            persistent_notification.async_create(
-                self.hass,
-                "\n\n".join(errors),
-                title=f"Errors actualitzant {self.config_entry.title}",
-                notification_id=f"{DOMAIN}_{self.config_entry.entry_id}_errors",
-            )
-            raise HomeAssistantError("; ".join(e[:200] for e in errors))
+        self._report(st, _parse_rcs(st.log))
 
+    async def async_resume_jobs(self) -> None:
+        """After a restart of Home Assistant, follow jobs still running on the computer."""
+        try:
+            res = await self.client.run(JOBS_RUNNING_SCRIPT, timeout=30)
+        except (CannotConnect, CommandError):
+            return
+        for job in str(res.stdout).split():
+            targets = self.pending_targets() if job == JOB_ALL else [job.replace("_", ":", 2) if job.startswith("ct_") else job]
+            _LOGGER.info("%s: following running job %s", self.config_entry.title, job)
+            self.config_entry.async_create_background_task(
+                self.hass, self._resume(job, targets), f"{DOMAIN} resume {job}"
+            )
+
+    async def _resume(self, job: str, targets: list[str]) -> None:
+        if job == JOB_ALL:
+            self.updating_all = True
+        try:
+            st = await self._run_job(job, "", targets, start=False)
+        finally:
+            self.updating_all = False
+            await self.async_refresh()
+        try:
+            self._report(st, _parse_rcs(st.log) if job == JOB_ALL else {job: st.rc})
+        except HomeAssistantError:
+            pass  # already notified
+
+    def _report(self, st: JobState, rcs: dict[str, int | None]) -> None:
+        """Notify and raise when a job (or part of it) failed."""
+        failed = {t: rc for t, rc in rcs.items() if rc not in (0, None)}
+        if st.state == "timeout":
+            msg = "L'actualització encara no ha acabat després de 4 hores."
+        elif st.state == "missing":
+            msg = "L'actualització ha desaparegut (s'ha reiniciat l'ordinador?)."
+        elif failed or st.rc not in (0, None):
+            tail = st.log.strip()[-1500:]
+            what = ", ".join(f"{t} (codi {rc})" for t, rc in failed.items()) or f"codi {st.rc}"
+            msg = f"Ha fallat: {what}\n\n```\n{tail}\n```"
+        else:
+            persistent_notification.async_dismiss(
+                self.hass, f"{DOMAIN}_{self.config_entry.entry_id}_errors"
+            )
+            return
+        persistent_notification.async_create(
+            self.hass,
+            msg,
+            title=f"Errors actualitzant {self.config_entry.title}",
+            notification_id=f"{DOMAIN}_{self.config_entry.entry_id}_errors",
+        )
+        raise HomeAssistantError(msg.split("\n", 1)[0])
+
+
+def _parse_rcs(log: str) -> dict[str, int | None]:
+    """Exit code per target from the markers of the update-all job."""
+    rcs: dict[str, int | None] = {}
+    for line in log.splitlines():
+        if line.startswith("@@target "):
+            rcs.setdefault(line.split(maxsplit=1)[1], None)
+        elif line.startswith("@@rc "):
+            parts = line.split()
+            if len(parts) == 3:
+                try:
+                    rcs[parts[1]] = int(parts[2])
+                except ValueError:
+                    rcs[parts[1]] = -1
+    return rcs
 
 
 @dataclass

@@ -839,3 +839,103 @@ def routeros_wol_command(mac: str, interface: str | None) -> str:
     if interface:
         cmd += f' interface="{interface}"'
     return cmd
+
+
+# --------------------------------------------------------------------------
+# Detached jobs: long installs run on the computer itself (setsid nohup), so
+# they survive a restart of Home Assistant or a dropped SSH connection.
+
+JOB_DIR = '"${XDG_CACHE_HOME:-$HOME/.cache}/gnulinux_computer"'
+
+_RUNNER = r"""J=$1
+SUDO="$GLC_SUDO"; SUDOFLAGS="$GLC_SUDOFLAGS"
+if [ -n "$GLC_PW" ]; then
+  SUDO_ASKPASS=$(mktemp); export SUDO_ASKPASS
+  trap 'rm -f "$SUDO_ASKPASS"' EXIT
+  cat > "$SUDO_ASKPASS" <<'GLCASK'
+#!/bin/sh
+printf '%s\n' "$GLC_PW"
+GLCASK
+  chmod 700 "$SUDO_ASKPASS"
+fi
+export LC_ALL=C LANG=C
+date +%s > "$J.started"
+( . "$J.payload" ); rc=$?
+echo "$rc" > "$J.rc"
+rm -f "$J.pid"
+"""
+
+PACMAN_PREFLIGHT = r"""if [ -e /var/lib/pacman/db.lck ] && ! pgrep -x pacman >/dev/null 2>&1; then
+  echo "La base de dades de pacman està bloquejada (db.lck orfe, cap pacman en marxa)." >&2
+  echo "Comprova-ho i elimina-la: sudo rm /var/lib/pacman/db.lck" >&2
+  exit 75
+fi
+"""
+
+
+def _job_name(job: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", job)
+
+
+def job_start_script(job: str, payload: str) -> str:
+    """Start payload as a detached job unless another job is running."""
+    name = _job_name(job)
+    return f"""D={JOB_DIR}; mkdir -p "$D"; chmod 700 "$D"
+for p in "$D"/*.pid; do
+  [ -e "$p" ] || continue
+  if kill -0 "$(cat "$p")" 2>/dev/null; then echo "@busy $(basename "$p" .pid)"; exit 0; fi
+  rm -f "$p"
+done
+J="$D/{name}"; rm -f "$J.rc" "$J.log" "$J.started"
+cat > "$J.payload" <<'GLCPAYLOAD'
+{payload}
+GLCPAYLOAD
+cat > "$D/runner.sh" <<'GLCRUNNER'
+{_RUNNER}GLCRUNNER
+GLC_SUDO="$SUDO" GLC_SUDOFLAGS="$SUDOFLAGS" setsid nohup sh "$D/runner.sh" "$J" > "$J.log" 2>&1 < /dev/null &
+echo $! > "$J.pid"
+echo "@started {name}"
+"""
+
+
+def job_status_script(job: str) -> str:
+    """Report state, exit code and the end of the log of a job."""
+    name = _job_name(job)
+    return f"""D={JOB_DIR}; J="$D/{name}"
+if [ -f "$J.rc" ]; then echo "@done"; cat "$J.rc"
+elif [ -f "$J.pid" ] && kill -0 "$(cat "$J.pid")" 2>/dev/null; then echo "@running"
+else echo "@missing"; fi
+echo "@log"; tail -c 6000 "$J.log" 2>/dev/null
+"""
+
+
+JOBS_RUNNING_SCRIPT = f"""D={JOB_DIR}
+for p in "$D"/*.pid; do
+  [ -e "$p" ] || continue
+  kill -0 "$(cat "$p")" 2>/dev/null && basename "$p" .pid
+done
+"""
+
+
+@dataclass
+class JobState:
+    """State of a detached job."""
+
+    state: str  # running | done | missing
+    rc: int | None
+    log: str
+
+
+def parse_job_status(text: str) -> JobState:
+    """Parse job_status_script output."""
+    head, _, log = text.partition("@log\n")
+    lines = [line.strip() for line in head.splitlines() if line.strip()]
+    state = next((k for k in ("done", "running", "missing") if f"@{k}" in lines), "missing")
+    rc = None
+    if state == "done":
+        idx = lines.index("@done")
+        try:
+            rc = int(lines[idx + 1])
+        except (IndexError, ValueError):
+            rc = -1
+    return JobState(state, rc, log)

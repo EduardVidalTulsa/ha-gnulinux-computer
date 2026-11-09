@@ -105,6 +105,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: GLConfigEntry) -> bool:
     # The computer may be asleep: never fail setup because it is offline.
     await status.async_refresh()
     await updates.async_refresh()
+    if status.online:
+        # Installs started before a restart keep running on the computer.
+        await updates.async_resume_jobs()
     entry.async_on_unload(status.async_add_listener(updates.status_changed))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
