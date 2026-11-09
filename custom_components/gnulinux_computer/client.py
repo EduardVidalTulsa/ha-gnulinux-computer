@@ -144,21 +144,8 @@ class LinuxClient:
         preamble, stdin = self._preamble()
         full = "export LC_ALL=C LANG=C\n" + preamble + script
         command = "sh -c " + shlex.quote(full)
-        conn = await self._connect()
-        try:
-            result = await conn.run(
-                command,
-                input=stdin.encode() if (binary and stdin) else stdin,
-                check=False,
-                timeout=timeout,
-                encoding=None if binary else "utf-8",
-                errors="replace",
-            )
-        except asyncssh.TimeoutError as err:
-            raise CommandError(f"Timeout after {timeout}s") from err
-        except (OSError, asyncssh.Error) as err:
-            await self.close()
-            raise CannotConnect(f"{self.host}: {err}") from err
+        data = (stdin.encode() if binary else stdin) if stdin else None
+        result = await self._exec(command, data, timeout=timeout, binary=binary)
         stderr = result.stderr or ""
         if isinstance(stderr, bytes):
             stderr = stderr.decode(errors="replace")
@@ -168,18 +155,38 @@ class LinuxClient:
             stderr=stderr,
         )
 
-    async def run_raw(self, command: str, *, timeout: float = 30) -> RunResult:
-        """Run a command as-is, without sh wrapper or sudo (e.g. RouterOS)."""
-        conn = await self._connect()
+    async def _exec(
+        self, command: str, data: str | bytes | None, *, timeout: float, binary: bool
+    ) -> asyncssh.SSHCompletedProcess:
+        """Run a command. If the cached connection turns out to be dead when
+        opening the session (nothing ran yet), reconnect and try once more."""
+        for attempt in (1, 2):
+            conn = await self._connect()
+            try:
+                proc = await conn.create_process(
+                    command, encoding=None if binary else "utf-8", errors="replace"
+                )
+                break
+            except (OSError, asyncssh.Error) as err:
+                await self.close()
+                if attempt == 2:
+                    raise CannotConnect(f"{self.host}: {err}") from err
+                _LOGGER.debug("%s: stale SSH connection (%s), reconnecting", self.host, err)
         try:
-            result = await conn.run(
-                command, check=False, timeout=timeout, encoding="utf-8", errors="replace"
-            )
+            if data is not None:
+                proc.stdin.write(data)
+            proc.stdin.write_eof()
+            return await proc.wait(check=False, timeout=timeout)
         except asyncssh.TimeoutError as err:
+            proc.close()
             raise CommandError(f"Timeout after {timeout}s") from err
         except (OSError, asyncssh.Error) as err:
             await self.close()
             raise CannotConnect(f"{self.host}: {err}") from err
+
+    async def run_raw(self, command: str, *, timeout: float = 30) -> RunResult:
+        """Run a command as-is, without sh wrapper or sudo (e.g. RouterOS)."""
+        result = await self._exec(command, None, timeout=timeout, binary=False)
         return RunResult(
             exit_status=result.exit_status if result.exit_status is not None else -1,
             stdout=result.stdout or "",
