@@ -1,6 +1,9 @@
 {
   "domain": "gnulinux_computer",
   "name": "GNU+Linux Computer",
+  "after_dependencies": [
+    "mikrotik"
+  ],
   "codeowners": [
     "@EduardVidalTulsa"
   ],

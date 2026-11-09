@@ -76,6 +76,14 @@
           "wol_router_password": "Password (optional)",
           "wol_router_interface": "Interface (e.g. bridge)"
         }
+      },
+      "wol_ha_mikrotik": {
+        "title": "Wake-on-LAN through a MikroTik of Home Assistant",
+        "description": "Uses the connection of the MikroTik integration (`/tool/wol`). The API user of the router needs the **test** policy.",
+        "data": {
+          "wol_ha_mikrotik_entry": "Router",
+          "wol_router_interface": "Interface (e.g. bridge)"
+        }
       }
     },
     "error": {
@@ -86,7 +94,8 @@
       "not_routeros": "Connected, but it does not look like RouterOS"
     },
     "abort": {
-      "no_other_computer": "There is no other computer configured to act as a relay"
+      "no_other_computer": "There is no other computer configured to act as a relay",
+      "no_mikrotik": "Add the router with the MikroTik integration first"
     }
   },
   "selector": {
@@ -101,6 +110,7 @@
       "options": {
         "local": "Broadcast from Home Assistant (same network)",
         "computer": "Through another computer of this integration",
+        "ha_mikrotik": "Through a MikroTik router added to Home Assistant",
         "mikrotik": "Through a MikroTik router (SSH)"
       }
     }

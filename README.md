@@ -68,7 +68,11 @@ how it is woken up:
 - **Broadcast from Home Assistant** – default, same network only.
 - **Through another computer** of this integration that is always on in the
   same network (it needs `wakeonlan` or `python3`).
-- **Through a MikroTik router** of that network: Home Assistant logs in over
+- **Through a MikroTik router added to Home Assistant** with the core
+  [MikroTik integration](https://www.home-assistant.io/integrations/mikrotik):
+  its existing API connection sends `/tool/wol`, no extra user or key needed.
+  The API user of the router needs the **test** policy.
+- **Through a MikroTik router** over SSH (routers not in Home Assistant): it logs in over
   SSH and runs `/tool wol`. A key is generated in `/config/.ssh/gnulinux_mikrotik`
   and the options form shows the RouterOS commands to create a restricted user:
 
@@ -137,7 +141,8 @@ Integració per controlar ordinadors GNU/Linux des de Home Assistant per SSH:
 - **Captura de pantalla** de la sessió gràfica.
 - **Energia**: encès (Wake-on-LAN), suspès (RAM), hibernat (disc), apagat i
   reinici. Si l'ordinador és en una altra xarxa, el paquet màgic el pot enviar
-  un altre ordinador de la integració o un router MikroTik d'aquella xarxa.
+  un altre ordinador de la integració o un router MikroTik d'aquella xarxa
+  (el mateix que ja tinguis a Home Assistant amb la integració MikroTik, o per SSH).
 
 Instal·lació: Marketplace/HACS → *Repositoris personalitzats* →
 `https://github.com/EduardVidalTulsa/ha-gnulinux-computer` (Integració).
