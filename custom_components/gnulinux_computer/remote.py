@@ -552,7 +552,10 @@ def install_script(backend: str, tool: str) -> str:
     """Command that installs all pending updates for a backend."""
     return {
         BACKEND_PACMAN: "$SUDO pacman -Syu --noconfirm --noprogressbar",
+        # Never build AUR packages on top of outdated repo packages (partial
+        # upgrade): bring the system up to date first.
         BACKEND_AUR: (
+            "$SUDO pacman -Syu --noconfirm --noprogressbar && "
             f'{tool} -Sua --noconfirm --sudoflags="$SUDOFLAGS" --removemake'
             + (" --answerdiff None --answerclean None" if tool == "yay" else "")
         ),
