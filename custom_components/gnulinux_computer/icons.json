@@ -41,6 +41,24 @@
       },
       "services_disabled": {
         "default": "mdi:minus-circle-outline"
+      },
+      "power_total": {
+        "default": "mdi:flash"
+      },
+      "power_cpu": {
+        "default": "mdi:cpu-64-bit"
+      },
+      "power_platform": {
+        "default": "mdi:flash-outline"
+      },
+      "power_gpu": {
+        "default": "mdi:expansion-card"
+      },
+      "power_battery": {
+        "default": "mdi:battery-arrow-down"
+      },
+      "power_pmic": {
+        "default": "mdi:flash-outline"
       }
     },
     "update": {

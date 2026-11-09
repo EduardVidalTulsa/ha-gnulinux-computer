@@ -172,6 +172,24 @@
       },
       "services_disabled": {
         "name": "Disabled services"
+      },
+      "power_total": {
+        "name": "Power (estimated)"
+      },
+      "power_cpu": {
+        "name": "CPU power"
+      },
+      "power_platform": {
+        "name": "Platform power (psys)"
+      },
+      "power_gpu": {
+        "name": "GPU power"
+      },
+      "power_battery": {
+        "name": "Battery power"
+      },
+      "power_pmic": {
+        "name": "PMIC power"
       }
     },
     "update": {

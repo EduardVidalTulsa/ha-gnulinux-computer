@@ -15,7 +15,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, EntityCategory
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -24,6 +24,7 @@ from homeassistant.util import dt as dt_util
 from . import GLConfigEntry
 from .coordinator import BACKEND_LABELS, StatusCoordinator, UpdatesCoordinator, UpdatesData
 from .entity import GLEntity
+from .power import PowerValues
 from .remote import StatusData, Volume
 
 
@@ -135,6 +136,24 @@ async def async_setup_entry(
 
     add_volumes()
     entry.async_on_unload(rt.status.async_add_listener(add_volumes))
+
+    added_power: set[str] = set()
+
+    @callback
+    def add_power() -> None:
+        if not rt.status.online:
+            return
+        new = [
+            PowerSensor(entry, rt, key)
+            for key in POWER_KEYS
+            if key not in added_power and _power_value(rt.status.power, key)[0] is not None
+        ]
+        added_power.update(s.key for s in new)
+        if new:
+            async_add_entities(new)
+
+    add_power()
+    entry.async_on_unload(rt.status.async_add_listener(add_power))
 
 
 class StatusSensor(GLEntity, CoordinatorEntity[StatusCoordinator], SensorEntity):
@@ -274,3 +293,50 @@ class VolumeSensor(GLEntity, CoordinatorEntity[StatusCoordinator], SensorEntity)
             "free_gib": round(vol.available / gib, 1),
             "also_mounted_on": vol.other_mounts,
         }
+
+
+POWER_KEYS = ("power_total", "power_cpu", "power_platform", "power_gpu", "power_battery", "power_pmic")
+
+
+def _power_value(power: PowerValues, key: str) -> tuple[float | None, str | None]:
+    if key == "power_total":
+        return power.total
+    return getattr(power, key.removeprefix("power_")), None
+
+
+class PowerSensor(GLEntity, CoordinatorEntity[StatusCoordinator], SensorEntity):
+    """Power consumption (W). The total is an estimate, not a wall meter."""
+
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, entry: GLConfigEntry, rt, key: str) -> None:
+        """Initialize."""
+        GLEntity.__init__(self, entry, rt, key)
+        CoordinatorEntity.__init__(self, rt.status)
+        self.key = key
+        self._attr_translation_key = key
+        if key != "power_total":
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def available(self) -> bool:
+        """Available while online and measurable."""
+        return self.coordinator.online and self.native_value is not None
+
+    @property
+    def native_value(self) -> float | None:
+        """Watts."""
+        return _power_value(self.coordinator.power, self.key)[0]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Source of the estimate / RAPL domains."""
+        power = self.coordinator.power
+        if self.key == "power_total":
+            return {"source": power.total[1]}
+        if self.key in ("power_cpu", "power_platform") and power.rapl_domains:
+            return {"rapl_domains": power.rapl_domains, "averaged_over_s": 300}
+        return None

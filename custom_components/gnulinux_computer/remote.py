@@ -112,6 +112,29 @@ echo "@volumes"
 timeout 10 df -PT -x tmpfs -x devtmpfs -x overlay -x squashfs -x efivarfs -x ramfs -x nsfs \
   -x fuse.portal -x fuse.gvfsd-fuse -x fuse.snapfuse -x autofs 2>/dev/null | tail -n +2
 echo "@kernel"; uname -r
+echo "@gpu"
+command -v nvidia-smi >/dev/null 2>&1 && timeout 5 nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits 2>/dev/null | sed 's/^/nvidia /'
+for h in /sys/class/drm/card*/device/hwmon/hwmon*; do
+  f="$h/power1_average"; [ -r "$f" ] || f="$h/power1_input"
+  [ -r "$f" ] && echo "amdgpu_uw $(cat "$f")"
+done
+echo "@battery"
+for p in /sys/class/power_supply/*; do
+  [ "$(cat "$p/type" 2>/dev/null)" = Battery ] || continue
+  [ "$(cat "$p/scope" 2>/dev/null)" = Device ] && continue
+  if [ -r "$p/power_now" ]; then w=$(cat "$p/power_now")
+  elif [ -r "$p/current_now" ] && [ -r "$p/voltage_now" ]; then w=$(( $(cat "$p/current_now") / 1000 * $(cat "$p/voltage_now") / 1000 ))
+  else continue; fi
+  echo "$(basename "$p") $(cat "$p/status" 2>/dev/null) $w"
+done
+echo "@pmic"
+if command -v vcgencmd >/dev/null 2>&1; then
+  vcgencmd pmic_read_adc 2>/dev/null || $SUDO vcgencmd pmic_read_adc 2>/dev/null
+fi
+if [ -n "$GLC_RAPL" ] && ls -d /sys/class/powercap/*-rapl:* >/dev/null 2>&1; then
+  echo "@rapl"
+  $SUDO sh -c 'for z in /sys/class/powercap/intel-rapl:[0-9]* /sys/class/powercap/amd-rapl:[0-9]*; do [ -r "$z/energy_uj" ] || continue; case "${z##*/}" in *:*:*) continue;; esac; echo "$(cat "$z/name") $(cat "$z/energy_uj") $(cat "$z/max_energy_range_uj") $(date +%s%N)"; done' 2>/dev/null
+fi
 echo "@reboot"
 k=$(uname -r)
 if [ -d /usr/lib/modules ] && [ ! -d "/usr/lib/modules/$k" ] && [ ! -d "/lib/modules/$k" ]; then
@@ -233,6 +256,7 @@ class StatusData:
     services_running: list[str] | None = None
     services_enabled: list[str] | None = None
     services_disabled: list[str] | None = None
+    sections: dict[str, list[str]] = field(default_factory=dict, repr=False)
 
     @property
     def mem_used_pct(self) -> float | None:
@@ -242,9 +266,10 @@ class StatusData:
         return round(100 * (self.mem_total - self.mem_available) / self.mem_total, 1)
 
 
-def status_script(units: list[str]) -> str:
+def status_script(units: list[str], read_rapl: bool = False) -> str:
     """Build the status script."""
-    return f"UNITS={shlex.quote(' '.join(units))}\n" + STATUS_SCRIPT
+    rapl = "GLC_RAPL=1\n" if read_rapl else ""
+    return f"UNITS={shlex.quote(' '.join(units))}\n{rapl}" + STATUS_SCRIPT
 
 
 def parse_status(text: str, units: list[str]) -> StatusData:
@@ -324,6 +349,7 @@ def parse_status(text: str, units: list[str]) -> StatusData:
         services_running=running,
         services_enabled=enabled,
         services_disabled=disabled,
+        sections={k: v for k, v in sec.items() if k in ("gpu", "battery", "pmic", "rapl")},
     )
 
 

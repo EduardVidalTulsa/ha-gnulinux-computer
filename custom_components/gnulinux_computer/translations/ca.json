@@ -172,6 +172,24 @@
       },
       "services_disabled": {
         "name": "Serveis desactivats"
+      },
+      "power_total": {
+        "name": "Consum (estimat)"
+      },
+      "power_cpu": {
+        "name": "Consum CPU"
+      },
+      "power_platform": {
+        "name": "Consum plataforma (psys)"
+      },
+      "power_gpu": {
+        "name": "Consum GPU"
+      },
+      "power_battery": {
+        "name": "Consum de bateria"
+      },
+      "power_pmic": {
+        "name": "Consum PMIC"
       }
     },
     "update": {

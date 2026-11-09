@@ -33,6 +33,7 @@ from .const import (
     POWER_ON,
     allowed_power_options,
 )
+from .power import PowerValues, RaplTracker, compute as compute_power
 from .registry import check_digests
 from .remote import (
     CONTAINERS_SCRIPT,
@@ -119,13 +120,19 @@ class StatusCoordinator(DataUpdateCoordinator[StatusData]):
         )
         self.client = client
         self.units: list[str] = list(entry.options.get(CONF_UNITS, []))
+        self.rapl = RaplTracker()
+        self.power = PowerValues()
 
     async def _async_update_data(self) -> StatusData:
         try:
-            res = await self.client.run(status_script(self.units), timeout=30)
+            res = await self.client.run(
+                status_script(self.units, read_rapl=self.rapl.due()), timeout=30
+            )
         except (CannotConnect, CommandError) as err:
             raise UpdateFailed(str(err)) from err
-        return parse_status(str(res.stdout), self.units)
+        data = parse_status(str(res.stdout), self.units)
+        self.power = compute_power(data.sections, self.rapl)
+        return data
 
     @property
     def online(self) -> bool:
