@@ -8,7 +8,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME, Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
@@ -41,6 +41,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 SERVICE_UNIT = "service_control"
 SERVICE_SCREENSHOT = "take_screenshot"
+SERVICE_UPDATE_LOG = "update_log"
 ATTR_ENTRY = "config_entry_id"
 
 
@@ -70,6 +71,31 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 vol.Required("command"): vol.In(UNIT_COMMANDS),
             }
         ),
+    )
+    async def update_log(call: ServiceCall) -> ServiceResponse:
+        job = await _runtime(call).updates.async_job_log(call.data["lines"])
+        if job is None:
+            return {"job": None, "state": None, "log": ""}
+        return {
+            "job": job.job,
+            "state": "running" if job.state == "running" else ("success" if job.state == "done" and job.rc == 0 else "failed"),
+            "exit_code": job.rc,
+            "started": job.started,
+            "finished": job.finished,
+            "log": job.log,
+        }
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_UPDATE_LOG,
+        update_log,
+        schema=vol.Schema(
+            {
+                vol.Required(ATTR_ENTRY): cv.string,
+                vol.Optional("lines", default=200): vol.All(vol.Coerce(int), vol.Range(min=10, max=5000)),
+            }
+        ),
+        supports_response=SupportsResponse.ONLY,
     )
     hass.services.async_register(
         DOMAIN,

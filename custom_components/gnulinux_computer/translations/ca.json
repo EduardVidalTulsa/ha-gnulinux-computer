@@ -190,6 +190,14 @@
       },
       "power_pmic": {
         "name": "Consum PMIC"
+      },
+      "last_update": {
+        "name": "Darrera actualització",
+        "state": {
+          "running": "En curs",
+          "success": "Correcta",
+          "failed": "Fallada"
+        }
       }
     },
     "update": {
@@ -279,6 +287,20 @@
         "config_entry_id": {
           "name": "Ordinador",
           "description": "Ordinador on fer la captura."
+        }
+      }
+    },
+    "update_log": {
+      "name": "Registre d'actualització",
+      "description": "Retorna la sortida de la darrera actualització feta a l'ordinador.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ordinador",
+          "description": "Ordinador del qual llegir el registre."
+        },
+        "lines": {
+          "name": "Línies",
+          "description": "Nombre de línies del final de la sortida."
         }
       }
     }

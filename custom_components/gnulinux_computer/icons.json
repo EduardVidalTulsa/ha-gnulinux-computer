@@ -59,6 +59,14 @@
       },
       "power_pmic": {
         "default": "mdi:flash-outline"
+      },
+      "last_update": {
+        "default": "mdi:text-box-outline",
+        "state": {
+          "running": "mdi:progress-download",
+          "success": "mdi:check-circle-outline",
+          "failed": "mdi:alert-circle-outline"
+        }
       }
     },
     "update": {
@@ -107,6 +115,9 @@
     },
     "take_screenshot": {
       "service": "mdi:monitor-screenshot"
+    },
+    "update_log": {
+      "service": "mdi:text-box-search-outline"
     }
   }
 }

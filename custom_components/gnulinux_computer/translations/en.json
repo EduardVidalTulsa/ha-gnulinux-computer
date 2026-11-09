@@ -190,6 +190,14 @@
       },
       "power_pmic": {
         "name": "PMIC power"
+      },
+      "last_update": {
+        "name": "Last update",
+        "state": {
+          "running": "Running",
+          "success": "Successful",
+          "failed": "Failed"
+        }
       }
     },
     "update": {
@@ -279,6 +287,20 @@
         "config_entry_id": {
           "name": "Computer",
           "description": "Computer to capture."
+        }
+      }
+    },
+    "update_log": {
+      "name": "Update log",
+      "description": "Returns the output of the last update that ran on the computer.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Computer",
+          "description": "Computer to read the log from."
+        },
+        "lines": {
+          "name": "Lines",
+          "description": "Number of lines from the end of the output."
         }
       }
     }

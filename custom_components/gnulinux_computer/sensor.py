@@ -116,7 +116,7 @@ async def async_setup_entry(
     """Set up sensors."""
     rt = entry.runtime_data
     entities: list[SensorEntity] = [StatusSensor(entry, rt, d) for d in STATUS_SENSORS]
-    entities += [UpdatesTotalSensor(entry, rt), LastCheckSensor(entry, rt)]
+    entities += [UpdatesTotalSensor(entry, rt), LastCheckSensor(entry, rt), LastJobSensor(entry, rt)]
     async_add_entities(entities)
 
     known: set[str] = set()
@@ -340,3 +340,49 @@ class PowerSensor(GLEntity, CoordinatorEntity[StatusCoordinator], SensorEntity):
         if self.key in ("power_cpu", "power_platform") and power.rapl_domains:
             return {"rapl_domains": power.rapl_domains, "averaged_over_s": 300}
         return None
+
+
+def _ts(epoch: int | None) -> str | None:
+    return dt_util.utc_from_timestamp(epoch).isoformat() if epoch else None
+
+
+class LastJobSensor(_UpdatesBase):
+    """Result and output of the last update that ran on the computer."""
+
+    _attr_translation_key = "last_update"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["running", "success", "failed"]
+    _unrecorded_attributes = frozenset({"log"})
+
+    def __init__(self, entry: GLConfigEntry, rt) -> None:
+        """Initialize."""
+        super().__init__(entry, rt, "last_update_job")
+
+    @property
+    def available(self) -> bool:
+        """Available once a job is known."""
+        return self.coordinator.last_job is not None
+
+    @property
+    def native_value(self) -> str | None:
+        """running / success / failed."""
+        job = self.coordinator.last_job
+        if job is None:
+            return None
+        if job.state == "running":
+            return "running"
+        return "success" if job.state == "done" and job.rc == 0 else "failed"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """What ran, when, exit code and the last lines of output."""
+        job = self.coordinator.last_job
+        if job is None:
+            return None
+        return {
+            "job": job.job,
+            "started": _ts(job.started),
+            "finished": _ts(job.finished),
+            "exit_code": job.rc,
+            "log": job.log.rstrip()[-8000:],
+        }

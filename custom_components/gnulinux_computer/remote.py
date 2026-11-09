@@ -901,15 +901,29 @@ echo "@started {name}"
 """
 
 
-def job_status_script(job: str) -> str:
-    """Report state, exit code and the end of the log of a job."""
-    name = _job_name(job)
-    return f"""D={JOB_DIR}; J="$D/{name}"
+_JOB_REPORT = """echo "@job $(basename "$J")"
+echo "@started $(cat "$J.started" 2>/dev/null)"
+[ -f "$J.rc" ] && echo "@finished $(stat -c %Y "$J.rc")"
 if [ -f "$J.rc" ]; then echo "@done"; cat "$J.rc"
 elif [ -f "$J.pid" ] && kill -0 "$(cat "$J.pid")" 2>/dev/null; then echo "@running"
 else echo "@missing"; fi
-echo "@log"; tail -c 6000 "$J.log" 2>/dev/null
+echo "@log"; tail -n "${GLC_LINES:-80}" "$J.log" 2>/dev/null | tail -c 12000
 """
+
+
+def job_status_script(job: str, lines: int = 80) -> str:
+    """Report state, times, exit code and the end of the log of a job."""
+    return f"""D={JOB_DIR}; J="$D/{_job_name(job)}"; GLC_LINES={int(lines)}
+""" + _JOB_REPORT
+
+
+def last_job_script(lines: int = 80) -> str:
+    """Same report for the most recently started job (if any)."""
+    return f"""D={JOB_DIR}; GLC_LINES={int(lines)}
+last=$(ls -t "$D"/*.started 2>/dev/null | head -n 1)
+[ -n "$last" ] || exit 0
+J="${{last%.started}}"
+""" + _JOB_REPORT
 
 
 JOBS_RUNNING_SCRIPT = f"""D={JOB_DIR}
@@ -924,9 +938,12 @@ done
 class JobState:
     """State of a detached job."""
 
-    state: str  # running | done | missing
+    state: str  # running | done | missing | timeout
     rc: int | None
     log: str
+    job: str | None = None
+    started: int | None = None  # epoch seconds
+    finished: int | None = None
 
 
 def parse_job_status(text: str) -> JobState:
@@ -941,4 +958,19 @@ def parse_job_status(text: str) -> JobState:
             rc = int(lines[idx + 1])
         except (IndexError, ValueError):
             rc = -1
-    return JobState(state, rc, log)
+    meta: dict[str, str] = {}
+    for line in lines:
+        key, _, value = line.partition(" ")
+        if key in ("@job", "@started", "@finished"):
+            meta[key[1:]] = value.strip()
+
+    def _int(v: str | None) -> int | None:
+        try:
+            return int(v) if v else None
+        except ValueError:
+            return None
+
+    return JobState(
+        state, rc, log, job=meta.get("job") or None,
+        started=_int(meta.get("started")), finished=_int(meta.get("finished")),
+    )

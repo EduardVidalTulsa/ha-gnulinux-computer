@@ -22,3 +22,17 @@ take_screenshot:
       selector:
         config_entry:
           integration: gnulinux_computer
+update_log:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: gnulinux_computer
+    lines:
+      default: 200
+      selector:
+        number:
+          min: 10
+          max: 5000
+          mode: box

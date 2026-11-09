@@ -42,6 +42,7 @@ from .remote import (
     JobState,
     job_start_script,
     job_status_script,
+    last_job_script,
     parse_job_status,
     CONTAINERS_SCRIPT,
     DETECT_SCRIPT,
@@ -184,6 +185,7 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
         self.status = status
         self.installing: set[str] = set()
         self.updating_all = False
+        self.last_job: JobState | None = None
         self._store: Store[dict] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}")
         self._known: set[str] | None = None
         self._was_offline = False
@@ -201,6 +203,7 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
         self._was_offline = False
         try:
             data = await self._check()
+            await self._refresh_last_job()
         except CannotConnect as err:
             if self.data is not None:
                 return self.data
@@ -341,6 +344,8 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
             except (CannotConnect, CommandError):
                 continue  # rebooting, network blip... keep waiting
             st = parse_job_status(str(res.stdout))
+            self.last_job = st
+            self.async_update_listeners()
             if st.state != "running":
                 return st
         return JobState("timeout", None, "")
@@ -408,6 +413,23 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
             self.updating_all = False
             await self.async_refresh()
         self._report(st, _parse_rcs(st.log))
+
+    async def _refresh_last_job(self) -> None:
+        try:
+            res = await self.client.run(last_job_script(), timeout=30)
+        except CommandError:
+            return
+        out = str(res.stdout)
+        self.last_job = parse_job_status(out) if out.strip() else None
+
+    async def async_job_log(self, lines: int) -> JobState | None:
+        """Output of the last update job (for the update_log action)."""
+        try:
+            res = await self.client.run(last_job_script(lines), timeout=60)
+        except (CannotConnect, CommandError) as err:
+            raise HomeAssistantError(f"{self.config_entry.title} no respon: {err}") from err
+        out = str(res.stdout)
+        return parse_job_status(out) if out.strip() else None
 
     async def async_resume_jobs(self) -> None:
         """After a restart of Home Assistant, follow jobs still running on the computer."""

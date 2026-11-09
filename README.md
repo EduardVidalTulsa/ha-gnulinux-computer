@@ -15,6 +15,7 @@ computer besides an SSH server and a user that can use `sudo`.
 |---|---|
 | **Package updates** | One `update` entity per source: **pacman**, **AUR** (yay/paru), **DNF**, **zypper**, **APT**, **Flatpak**, **Snap** and **firmware** (fwupd) — the same sources Plasma Discover and GNOME Software show. Release notes list every package with its current and new version. *Install* runs the upgrade. |
 | **Update all** | A button that upgrades everything in a safe order: system packages, AUR, Flatpak, Snap, then containers. Failures are reported in a notification. |
+| **Update output** | Updates run detached on the computer (they survive a restart of Home Assistant). The **Last update** sensor shows *running / successful / failed*, what ran, when, the exit code and the last lines of output (refreshed live while running). The `gnulinux_computer.update_log` action returns the full output. |
 | **Notifications** | A persistent notification when new updates appear, and the `gnulinux_computer_updates_available` event to build your own (mobile) notifications. |
 | **Containers** | Only when a Docker or Podman daemon is running: one `update` entity per container, comparing the local image digest with the registry (HEAD requests only, nothing is pulled). Containers managed by **docker compose** or **Podman quadlets** can be updated from Home Assistant. |
 | **Reboot required** | On when the running kernel or NVIDIA driver no longer matches the installed one, or when the distribution asks for it (`/run/reboot-required`, `needs-restarting`, …). |
@@ -128,6 +129,7 @@ version**. See [LICENSE](LICENSE).
 
 Integració per controlar ordinadors GNU/Linux des de Home Assistant per SSH:
 
+- **Sortida de l'última actualització** (sensor *Darrera actualització* i acció `update_log`); les actualitzacions corren en segon pla a la màquina.
 - **Actualitzacions** de pacman, AUR, DNF, zypper, APT, Flatpak, Snap i
   microprogramari, amb botó d'instal·lar i botó **Actualitza-ho tot**.
 - **Notificació** quan apareixen actualitzacions noves.
