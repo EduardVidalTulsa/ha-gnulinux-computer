@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
 import socket
+import time
 from typing import TYPE_CHECKING
 
 from homeassistant.components import persistent_notification
@@ -33,7 +34,7 @@ from .const import (
     POWER_ON,
     allowed_power_options,
 )
-from .power import PowerValues, RaplTracker, compute as compute_power
+from .power import SLOW_INTERVAL, PowerValues, RaplTracker, compute as compute_power
 from .registry import check_digests
 from .remote import (
     CONTAINERS_SCRIPT,
@@ -122,16 +123,23 @@ class StatusCoordinator(DataUpdateCoordinator[StatusData]):
         self.units: list[str] = list(entry.options.get(CONF_UNITS, []))
         self.rapl = RaplTracker()
         self.power = PowerValues()
+        self._last_slow: float | None = None
 
     async def _async_update_data(self) -> StatusData:
+        now = time.monotonic()
+        slow = (
+            self._last_slow is None
+            or now - self._last_slow >= SLOW_INTERVAL
+            or self.rapl.wants_quick_read
+        )
         try:
-            res = await self.client.run(
-                status_script(self.units, read_rapl=self.rapl.due()), timeout=30
-            )
+            res = await self.client.run(status_script(self.units, slow=slow), timeout=30)
         except (CannotConnect, CommandError) as err:
             raise UpdateFailed(str(err)) from err
+        if slow:
+            self._last_slow = now
         data = parse_status(str(res.stdout), self.units)
-        self.power = compute_power(data.sections, self.rapl)
+        self.power = compute_power(data.sections, self.rapl, self.power)
         return data
 
     @property

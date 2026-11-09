@@ -6,12 +6,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import re
-import time
 
-# RAPL energy counters can only be read by root, so every read goes through
-# sudo (and leaves a line in the journal). They are energy counters, so a long
-# interval still gives the exact average power over that interval.
-RAPL_INTERVAL = 300  # seconds
+# RAPL energy counters (and often the Raspberry Pi PMIC) can only be read by
+# root, so those reads go through sudo, which leaves lines in the journal: they
+# only run on "slow" polls. RAPL counts energy, so a long interval still gives
+# the exact average power over that interval.
+SLOW_INTERVAL = 300  # seconds
 
 _PMIC_RE = re.compile(r"^\s*(\S+)_([AV])\s+\w+\(\d+\)=([\d.]+)[AV]\s*$")
 
@@ -92,22 +92,17 @@ class RaplTracker:
         """Initialize."""
         self._last: dict[str, tuple[int, int, int]] = {}  # name -> (uj, max_uj, ns)
         self.watts: dict[str, float] = {}
-        self.last_read = 0.0
         self.available: bool | None = None  # None until the first read
 
-    def due(self) -> bool:
-        """Whether the next status poll should read RAPL."""
-        if self.available is False:
-            return False
-        if not self.watts:  # get a first value quickly after start
-            return True
-        return time.monotonic() - self.last_read >= RAPL_INTERVAL
+    @property
+    def wants_quick_read(self) -> bool:
+        """After the first sample, read again soon to get a first value."""
+        return self.available is not False and not self.watts and bool(self._last)
 
     def update(self, lines: list[str] | None) -> None:
         """Feed the @rapl section (None = not read this time)."""
         if lines is None:
             return
-        self.last_read = time.monotonic()
         samples: dict[str, tuple[int, int, int]] = {}
         for line in lines:
             parts = line.split()
@@ -136,9 +131,16 @@ class RaplTracker:
         self._last = samples
 
 
-def compute(sections: dict[str, list[str]], rapl: RaplTracker) -> PowerValues:
-    """Build PowerValues from the status sections and the RAPL tracker."""
+def compute(
+    sections: dict[str, list[str]], rapl: RaplTracker, previous: PowerValues | None = None
+) -> PowerValues:
+    """Build PowerValues from the status sections and the RAPL tracker.
+
+    A PMIC reading only comes on slow polls when it needs sudo: keep the
+    previous value in between.
+    """
     rapl.update(sections.get("rapl"))
+    pmic = _pmic(sections["pmic"]) if "pmic" in sections else (previous.pmic if previous else None)
     packages = [w for k, w in rapl.watts.items() if k.startswith("package")]
     psys = [w for k, w in rapl.watts.items() if k.startswith("psys")]
     return PowerValues(
@@ -146,6 +148,6 @@ def compute(sections: dict[str, list[str]], rapl: RaplTracker) -> PowerValues:
         platform=round(sum(psys), 1) if psys else None,
         gpu=_gpu(sections.get("gpu", [])),
         battery=_battery(sections.get("battery", [])),
-        pmic=_pmic(sections.get("pmic", [])),
+        pmic=pmic,
         rapl_domains=dict(rapl.watts),
     )

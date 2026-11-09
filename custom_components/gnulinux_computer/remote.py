@@ -127,11 +127,13 @@ for p in /sys/class/power_supply/*; do
   else continue; fi
   echo "$(basename "$p") $(cat "$p/status" 2>/dev/null) $w"
 done
-echo "@pmic"
 if command -v vcgencmd >/dev/null 2>&1; then
-  vcgencmd pmic_read_adc 2>/dev/null || $SUDO vcgencmd pmic_read_adc 2>/dev/null
+  # /dev/vcio_gencmd is often root-only: then read it with sudo only on slow polls
+  if out=$(vcgencmd pmic_read_adc 2>/dev/null); then echo "@pmic"; printf '%s\n' "$out"
+  elif [ -n "$GLC_SLOW" ]; then echo "@pmic"; $SUDO vcgencmd pmic_read_adc 2>/dev/null
+  fi
 fi
-if [ -n "$GLC_RAPL" ] && ls -d /sys/class/powercap/*-rapl:* >/dev/null 2>&1; then
+if [ -n "$GLC_SLOW" ] && ls -d /sys/class/powercap/*-rapl:* >/dev/null 2>&1; then
   echo "@rapl"
   $SUDO sh -c 'for z in /sys/class/powercap/intel-rapl:[0-9]* /sys/class/powercap/amd-rapl:[0-9]*; do [ -r "$z/energy_uj" ] || continue; case "${z##*/}" in *:*:*) continue;; esac; echo "$(cat "$z/name") $(cat "$z/energy_uj") $(cat "$z/max_energy_range_uj") $(date +%s%N)"; done' 2>/dev/null
 fi
@@ -266,10 +268,10 @@ class StatusData:
         return round(100 * (self.mem_total - self.mem_available) / self.mem_total, 1)
 
 
-def status_script(units: list[str], read_rapl: bool = False) -> str:
-    """Build the status script."""
-    rapl = "GLC_RAPL=1\n" if read_rapl else ""
-    return f"UNITS={shlex.quote(' '.join(units))}\n{rapl}" + STATUS_SCRIPT
+def status_script(units: list[str], slow: bool = False) -> str:
+    """Build the status script. Slow polls also run the readings that need sudo."""
+    flag = "GLC_SLOW=1\n" if slow else ""
+    return f"UNITS={shlex.quote(' '.join(units))}\n{flag}" + STATUS_SCRIPT
 
 
 def parse_status(text: str, units: list[str]) -> StatusData:
