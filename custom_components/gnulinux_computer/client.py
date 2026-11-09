@@ -168,6 +168,24 @@ class LinuxClient:
             stderr=stderr,
         )
 
+    async def run_raw(self, command: str, *, timeout: float = 30) -> RunResult:
+        """Run a command as-is, without sh wrapper or sudo (e.g. RouterOS)."""
+        conn = await self._connect()
+        try:
+            result = await conn.run(
+                command, check=False, timeout=timeout, encoding="utf-8", errors="replace"
+            )
+        except asyncssh.TimeoutError as err:
+            raise CommandError(f"Timeout after {timeout}s") from err
+        except (OSError, asyncssh.Error) as err:
+            await self.close()
+            raise CannotConnect(f"{self.host}: {err}") from err
+        return RunResult(
+            exit_status=result.exit_status if result.exit_status is not None else -1,
+            stdout=result.stdout or "",
+            stderr=result.stderr or "",
+        )
+
     async def detect_sudo(self) -> bool:
         """Detect whether sudo works without a password. Return True if sudo works."""
         if self.is_root:

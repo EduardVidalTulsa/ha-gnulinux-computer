@@ -15,6 +15,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 from homeassistant.core import callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 
 from .client import CannotConnect, LinuxClient, fetch_host_key, load_private_key
@@ -43,7 +44,9 @@ from .const import (
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     KEY_DIR,
+    CONF_WOL_METHOD,
 )
+from .wake import router_client
 from .remote import IDENTIFY_SCRIPT, LIST_UNITS_SCRIPT, parse_identity, parse_unit_list
 
 _LOGGER = logging.getLogger(__name__)
@@ -265,18 +268,33 @@ class GLConfigFlow(ConfigFlow, domain=DOMAIN):
 class GLOptionsFlow(OptionsFlow):
     """Options: services to monitor, intervals, Wake-on-LAN."""
 
+    def __init__(self) -> None:
+        """Initialize."""
+        self._opts: dict[str, Any] = {}
+        self._pubkey = ""
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Manage the options."""
+        """General options."""
         errors: dict[str, str] = {}
+        current = self.config_entry.options
         if user_input is not None:
             mac = user_input.get(CONF_MAC, "").strip()
             if mac and not _MAC_RE.match(mac):
                 errors[CONF_MAC] = "invalid_mac"
             else:
                 user_input[CONF_MAC] = mac.lower().replace("-", ":")
-                return self.async_create_entry(data=user_input)
+                # Keep relay settings unless the method changes away from them.
+                self._opts = {
+                    **{k: v for k, v in current.items() if k.startswith("wol_")},
+                    **user_input,
+                }
+                method = user_input.get(CONF_WOL_METHOD, WOL_LOCAL)
+                if method == WOL_COMPUTER:
+                    return await self.async_step_wol_computer()
+                if method == WOL_MIKROTIK:
+                    return await self.async_step_wol_mikrotik()
+                return self.async_create_entry(data=self._clean())
 
-        current = self.config_entry.options
         units: list[str] = list(current.get(CONF_UNITS, []))
         runtime = getattr(self.config_entry, "runtime_data", None)
         if runtime is not None and runtime.status.online:
@@ -308,8 +326,131 @@ class GLOptionsFlow(OptionsFlow):
                 ),
                 vol.Optional(CONF_MAC, default=current.get(CONF_MAC, "")): str,
                 vol.Optional(
+                    CONF_WOL_METHOD, default=current.get(CONF_WOL_METHOD, WOL_LOCAL)
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[WOL_LOCAL, WOL_COMPUTER, WOL_MIKROTIK],
+                        translation_key=CONF_WOL_METHOD,
+                        mode=selector.SelectSelectorMode.LIST,
+                    )
+                ),
+                vol.Optional(
                     CONF_BROADCAST, default=current.get(CONF_BROADCAST, DEFAULT_BROADCAST)
                 ): str,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
+
+    def _clean(self) -> dict[str, Any]:
+        """Drop relay settings that do not belong to the chosen method."""
+        method = self._opts.get(CONF_WOL_METHOD, WOL_LOCAL)
+        keep_router = method == WOL_MIKROTIK
+        return {
+            k: v
+            for k, v in self._opts.items()
+            if not k.startswith("wol_router_") or keep_router
+            if k != CONF_WOL_RELAY_ENTRY or method == WOL_COMPUTER
+        }
+
+    async def async_step_wol_computer(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose another computer that sends the magic packet."""
+        others = [
+            e
+            for e in self.hass.config_entries.async_entries(DOMAIN)
+            if e.entry_id != self.config_entry.entry_id
+        ]
+        if not others:
+            return self.async_abort(reason="no_other_computer")
+        if user_input is not None:
+            self._opts.update(user_input)
+            return self.async_create_entry(data=self._clean())
+        return self.async_show_form(
+            step_id="wol_computer",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_WOL_RELAY_ENTRY,
+                        default=self._opts.get(CONF_WOL_RELAY_ENTRY, others[0].entry_id),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                selector.SelectOptionDict(value=e.entry_id, label=e.title)
+                                for e in others
+                            ]
+                        )
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_wol_mikrotik(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """A MikroTik router in the computer's network sends the magic packet."""
+        errors: dict[str, str] = {}
+        default_key = f"{KEY_DIR}/gnulinux_mikrotik"
+        if not self._pubkey:
+            self._pubkey = await self.hass.async_add_executor_job(
+                _generate_key, default_key, f"home-assistant@{DOMAIN}"
+            )
+        if user_input is not None:
+            opts = {**self._opts, **user_input}
+            try:
+                opts[CONF_WOL_ROUTER_HOST_KEY] = await fetch_host_key(
+                    opts[CONF_WOL_ROUTER_HOST], int(opts.get(CONF_WOL_ROUTER_PORT, 22))
+                )
+                client = await router_client(self.hass, opts)
+                try:
+                    res = await client.run_raw("/system identity print", timeout=15)
+                finally:
+                    await client.close()
+                if not res.ok or "name:" not in res.stdout:
+                    errors["base"] = "not_routeros"
+            except CannotConnect as err:
+                msg = str(err).lower()
+                errors["base"] = (
+                    "invalid_auth" if "permission denied" in msg or "auth" in msg else "cannot_connect"
+                )
+            except HomeAssistantError:
+                errors["base"] = "invalid_key"
+            if not errors:
+                self._opts = opts
+                return self.async_create_entry(data=self._clean())
+        defaults = {
+            CONF_WOL_ROUTER_PORT: 22,
+            CONF_WOL_ROUTER_USER: "homeassistant",
+            CONF_WOL_ROUTER_KEY: default_key,
+            CONF_WOL_ROUTER_INTERFACE: "bridge",
+            **{k: v for k, v in self._opts.items() if k.startswith("wol_router_")},
+            **(user_input or {}),
+        }
+        return self.async_show_form(
+            step_id="wol_mikrotik",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_WOL_ROUTER_HOST): str,
+                        vol.Required(CONF_WOL_ROUTER_PORT): int,
+                        vol.Required(CONF_WOL_ROUTER_USER): str,
+                        vol.Optional(CONF_WOL_ROUTER_KEY): str,
+                        vol.Optional(CONF_WOL_ROUTER_PASSWORD): selector.TextSelector(
+                            selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                        ),
+                        vol.Optional(CONF_WOL_ROUTER_INTERFACE): str,
+                    }
+                ),
+                defaults,
+            ),
+            errors=errors,
+            description_placeholders={
+                "pubkey": self._pubkey,
+                "command": (
+                    "/user group add name=wol policy=ssh,read,test,!local,!telnet,!ftp,!reboot,"
+                    "!write,!policy,!winbox,!password,!web,!sniff,!sensitive,!api,!romon,!rest-api\n"
+                    "/user add name=homeassistant group=wol password=<random>\n"
+                    f'/user ssh-keys add user=homeassistant key="{self._pubkey}"'
+                ),
+            },
+        )

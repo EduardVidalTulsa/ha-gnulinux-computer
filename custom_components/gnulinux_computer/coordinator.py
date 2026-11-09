@@ -22,13 +22,10 @@ from homeassistant.util import dt as dt_util
 
 from .client import CannotConnect, CommandError, LinuxClient
 from .const import (
-    CONF_BROADCAST,
-    CONF_MAC,
     CONF_NOTIFY,
     CONF_STATUS_INTERVAL,
     CONF_UNITS,
     CONF_UPDATE_INTERVAL,
-    DEFAULT_BROADCAST,
     DEFAULT_STATUS_INTERVAL,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
@@ -399,12 +396,9 @@ class Runtime:
         if action == POWER_ON:
             if self.status.online:
                 return
-            mac = entry.options.get(CONF_MAC)
-            if not mac:
-                raise HomeAssistantError("No hi ha cap adreça MAC configurada per a Wake-on-LAN")
-            await self.status.hass.async_add_executor_job(
-                send_magic_packet, mac, entry.options.get(CONF_BROADCAST, DEFAULT_BROADCAST)
-            )
+            from .wake import async_wake  # noqa: PLC0415
+
+            await async_wake(self.status.hass, entry)
             self.last_power_target = POWER_ON
             return
         if not self.status.online:

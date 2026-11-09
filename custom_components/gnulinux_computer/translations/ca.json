@@ -54,12 +54,39 @@
           "update_interval": "Interval de comprovació d'actualitzacions",
           "status_interval": "Interval d'estat",
           "mac": "MAC per a Wake-on-LAN",
-          "broadcast_address": "Adreça de difusió WoL"
+          "broadcast_address": "Adreça de difusió WoL",
+          "wol_method": "Mètode de Wake-on-LAN"
+        }
+      },
+      "wol_computer": {
+        "title": "Wake-on-LAN a través d'un altre ordinador",
+        "description": "Tria un ordinador sempre encès i a la mateixa xarxa que aquest. Enviarà el paquet màgic (necessita `wakeonlan` o `python3`).",
+        "data": {
+          "wol_relay_entry": "Ordinador"
+        }
+      },
+      "wol_mikrotik": {
+        "title": "Wake-on-LAN a través d'un router MikroTik",
+        "description": "El router de la xarxa d'aquest ordinador envia el paquet màgic amb `/tool wol`.\n\nCrea-hi un usuari restringit (terminal de RouterOS):\n\n```\n{command}\n```\n\nS'ha generat la clau `/config/.ssh/gnulinux_mikrotik` per a això. Deixa la contrasenya en blanc per fer servir només la clau.",
+        "data": {
+          "wol_router_host": "Adreça del router",
+          "wol_router_port": "Port SSH",
+          "wol_router_user": "Usuari",
+          "wol_router_key": "Clau privada (camí)",
+          "wol_router_password": "Contrasenya (opcional)",
+          "wol_router_interface": "Interfície (p. ex. bridge)"
         }
       }
     },
     "error": {
-      "invalid_mac": "MAC invàlida"
+      "invalid_mac": "MAC invàlida",
+      "cannot_connect": "No s'ha pogut connectar",
+      "invalid_auth": "Autenticació incorrecta",
+      "invalid_key": "No s'ha pogut llegir la clau privada",
+      "not_routeros": "Connectat, però no sembla un RouterOS"
+    },
+    "abort": {
+      "no_other_computer": "No hi ha cap altre ordinador configurat que pugui fer de pont"
     }
   },
   "selector": {
@@ -68,6 +95,13 @@
         "password": "Usuari i contrasenya",
         "key_file": "Clau SSH existent",
         "generate_key": "Genera una clau SSH nova"
+      }
+    },
+    "wol_method": {
+      "options": {
+        "local": "Difusió des de Home Assistant (mateixa xarxa)",
+        "computer": "A través d'un altre ordinador de la integració",
+        "mikrotik": "A través d'un router MikroTik (SSH)"
       }
     }
   },

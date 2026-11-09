@@ -763,3 +763,40 @@ def parse_containers(text: str) -> list[Container]:
                 continue
     flush()
     return result
+
+
+# --------------------------------------------------------------------------
+# Wake-on-LAN relay
+
+
+def wol_relay_script(mac: str, broadcast: str) -> str:
+    """Send a magic packet from a Linux computer (used as a relay)."""
+    return f"""
+MAC={shlex.quote(mac)}; BC={shlex.quote(broadcast)}
+if command -v wakeonlan >/dev/null 2>&1; then wakeonlan -i "$BC" "$MAC" && exit 0; fi
+if command -v wol >/dev/null 2>&1; then wol -i "$BC" "$MAC" && exit 0; fi
+for py in python3 python; do
+  if command -v $py >/dev/null 2>&1; then
+    $py - "$MAC" "$BC" <<'GLCPY' && exit 0
+import socket, sys
+mac = sys.argv[1].replace(":", "").replace("-", "")
+packet = bytes.fromhex("FF" * 6 + mac * 16)
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    for port in (9, 7):
+        s.sendto(packet, (sys.argv[2], port))
+GLCPY
+  fi
+done
+if command -v etherwake >/dev/null 2>&1; then $SUDO etherwake -b "$MAC" && exit 0; fi
+echo "No tool to send Wake-on-LAN (install wakeonlan or python3)" >&2
+exit 3
+"""
+
+
+def routeros_wol_command(mac: str, interface: str | None) -> str:
+    """RouterOS command that sends a magic packet."""
+    cmd = f"/tool wol mac={mac.upper()}"
+    if interface:
+        cmd += f' interface="{interface}"'
+    return cmd

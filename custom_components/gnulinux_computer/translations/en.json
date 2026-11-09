@@ -54,12 +54,39 @@
           "update_interval": "Update check interval",
           "status_interval": "Status interval",
           "mac": "Wake-on-LAN MAC",
-          "broadcast_address": "WoL broadcast address"
+          "broadcast_address": "WoL broadcast address",
+          "wol_method": "Wake-on-LAN method"
+        }
+      },
+      "wol_computer": {
+        "title": "Wake-on-LAN through another computer",
+        "description": "Choose a computer that is always on and in the same network as this one. It will send the magic packet (needs `wakeonlan` or `python3`).",
+        "data": {
+          "wol_relay_entry": "Computer"
+        }
+      },
+      "wol_mikrotik": {
+        "title": "Wake-on-LAN through a MikroTik router",
+        "description": "The router of this computer's network sends the magic packet with `/tool wol`.\n\nCreate a restricted user on the router (RouterOS terminal):\n\n```\n{command}\n```\n\nThe key `/config/.ssh/gnulinux_mikrotik` was generated for this. Leave the password empty to use only the key.",
+        "data": {
+          "wol_router_host": "Router address",
+          "wol_router_port": "SSH port",
+          "wol_router_user": "User",
+          "wol_router_key": "Private key (path)",
+          "wol_router_password": "Password (optional)",
+          "wol_router_interface": "Interface (e.g. bridge)"
         }
       }
     },
     "error": {
-      "invalid_mac": "Invalid MAC"
+      "invalid_mac": "Invalid MAC",
+      "cannot_connect": "Cannot connect",
+      "invalid_auth": "Invalid authentication",
+      "invalid_key": "Cannot read the private key",
+      "not_routeros": "Connected, but it does not look like RouterOS"
+    },
+    "abort": {
+      "no_other_computer": "There is no other computer configured to act as a relay"
     }
   },
   "selector": {
@@ -68,6 +95,13 @@
         "password": "Username and password",
         "key_file": "Existing SSH key",
         "generate_key": "Generate a new SSH key"
+      }
+    },
+    "wol_method": {
+      "options": {
+        "local": "Broadcast from Home Assistant (same network)",
+        "computer": "Through another computer of this integration",
+        "mikrotik": "Through a MikroTik router (SSH)"
       }
     }
   },

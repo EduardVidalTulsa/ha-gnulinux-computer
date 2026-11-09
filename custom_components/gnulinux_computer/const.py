@@ -65,3 +65,17 @@ POWER_OPTIONS = [POWER_ON, POWER_SUSPEND, POWER_HIBERNATE, POWER_OFF, POWER_REBO
 UNIT_COMMANDS = ["start", "stop", "restart", "reload", "enable", "disable"]
 
 EVENT_UPDATES_AVAILABLE = f"{DOMAIN}_updates_available"
+
+# Wake-on-LAN method
+CONF_WOL_METHOD = "wol_method"
+WOL_LOCAL = "local"
+WOL_COMPUTER = "computer"
+WOL_MIKROTIK = "mikrotik"
+CONF_WOL_RELAY_ENTRY = "wol_relay_entry"
+CONF_WOL_ROUTER_HOST = "wol_router_host"
+CONF_WOL_ROUTER_PORT = "wol_router_port"
+CONF_WOL_ROUTER_USER = "wol_router_user"
+CONF_WOL_ROUTER_PASSWORD = "wol_router_password"
+CONF_WOL_ROUTER_KEY = "wol_router_key"
+CONF_WOL_ROUTER_INTERFACE = "wol_router_interface"
+CONF_WOL_ROUTER_HOST_KEY = "wol_router_host_key"

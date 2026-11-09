@@ -59,6 +59,25 @@ Options (⚙ on the integration): services to monitor, notifications, update
 check interval (default 60 min), status interval (default 30 s) and the
 Wake-on-LAN MAC / broadcast address (detected automatically).
 
+### Wake-on-LAN across networks
+
+Magic packets are broadcasts and do not cross routers. When the computer is in
+another network than Home Assistant (VPN, another site…), choose in the options
+how it is woken up:
+
+- **Broadcast from Home Assistant** – default, same network only.
+- **Through another computer** of this integration that is always on in the
+  same network (it needs `wakeonlan` or `python3`).
+- **Through a MikroTik router** of that network: Home Assistant logs in over
+  SSH and runs `/tool wol`. A key is generated in `/config/.ssh/gnulinux_mikrotik`
+  and the options form shows the RouterOS commands to create a restricted user:
+
+  ```
+  /user group add name=wol policy=ssh,read,test,!local,!telnet,!ftp,!reboot,!write,!policy,!winbox,!password,!web,!sniff,!sensitive,!api,!romon,!rest-api
+  /user add name=homeassistant group=wol password=<long random password>
+  /user ssh-keys add user=homeassistant key="ssh-ed25519 AAAA… home-assistant@gnulinux_computer"
+  ```
+
 ### Notification to your phone
 
 ```yaml
@@ -117,7 +136,8 @@ Integració per controlar ordinadors GNU/Linux des de Home Assistant per SSH:
 - **Volums**: percentatge ocupat de cada sistema de fitxers.
 - **Captura de pantalla** de la sessió gràfica.
 - **Energia**: encès (Wake-on-LAN), suspès (RAM), hibernat (disc), apagat i
-  reinici.
+  reinici. Si l'ordinador és en una altra xarxa, el paquet màgic el pot enviar
+  un altre ordinador de la integració o un router MikroTik d'aquella xarxa.
 
 Instal·lació: Marketplace/HACS → *Repositoris personalitzats* →
 `https://github.com/EduardVidalTulsa/ha-gnulinux-computer` (Integració).
