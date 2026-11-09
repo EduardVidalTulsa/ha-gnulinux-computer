@@ -32,6 +32,15 @@
         "data": {
           "sudo_password": "Sudo password (optional)"
         }
+      },
+      "power": {
+        "title": "Power actions",
+        "description": "Which actions may Home Assistant run on this computer? Leave everything off for servers.\n\nSleep states detected: {detected}.",
+        "data": {
+          "allow_suspend": "Allow suspend (RAM)",
+          "allow_hibernate": "Allow hibernate (disk)",
+          "allow_poweroff": "Allow power off"
+        }
       }
     },
     "error": {
@@ -55,7 +64,10 @@
           "status_interval": "Status interval",
           "mac": "Wake-on-LAN MAC",
           "broadcast_address": "WoL broadcast address",
-          "wol_method": "Wake-on-LAN method"
+          "wol_method": "Wake-on-LAN method",
+          "allow_suspend": "Allow suspend (RAM)",
+          "allow_hibernate": "Allow hibernate (disk)",
+          "allow_poweroff": "Allow power off"
         }
       },
       "wol_computer": {

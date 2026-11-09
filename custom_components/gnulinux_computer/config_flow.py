@@ -23,6 +23,9 @@ from .const import (
     AUTH_GENERATE,
     AUTH_KEY_FILE,
     AUTH_PASSWORD,
+    CONF_ALLOW_HIBERNATE,
+    CONF_ALLOW_POWEROFF,
+    CONF_ALLOW_SUSPEND,
     CONF_AUTH_METHOD,
     CONF_BROADCAST,
     CONF_HOST_KEY,
@@ -242,6 +245,8 @@ class GLConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_MANUFACTURER: ident.manufacturer or "",
                 CONF_MODEL: ident.model or "",
                 "_mac": ident.mac or "",
+                "_can_suspend": ident.can_suspend,
+                "_can_hibernate": ident.can_hibernate,
             }
         )
         await self.async_set_unique_id(ident.machine_id)
@@ -251,11 +256,37 @@ class GLConfigFlow(ConfigFlow, domain=DOMAIN):
         return {}
 
     async def _create(self) -> ConfigFlowResult:
+        return await self.async_step_power()
+
+    async def async_step_power(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Which power actions Home Assistant may run (servers: usually none)."""
+        if user_input is None:
+            can_suspend = self._data.get("_can_suspend", True)
+            can_hibernate = self._data.get("_can_hibernate", True)
+            return self.async_show_form(
+                step_id="power",
+                data_schema=vol.Schema(
+                    {
+                        vol.Required(CONF_ALLOW_SUSPEND, default=can_suspend): bool,
+                        vol.Required(CONF_ALLOW_HIBERNATE, default=can_hibernate): bool,
+                        vol.Required(CONF_ALLOW_POWEROFF, default=True): bool,
+                    }
+                ),
+                description_placeholders={
+                    "detected": ", ".join(
+                        x for x, ok in (("mem", can_suspend), ("disk", can_hibernate)) if ok
+                    )
+                    or "—",
+                },
+            )
         mac = self._data.pop("_mac", "")
+        self._data.pop("_can_suspend", None)
+        self._data.pop("_can_hibernate", None)
         return self.async_create_entry(
             title=self._data[CONF_HOSTNAME],
             data=self._data,
             options={
+                **user_input,
                 CONF_MAC: mac,
                 CONF_BROADCAST: DEFAULT_BROADCAST,
                 CONF_STATUS_INTERVAL: DEFAULT_STATUS_INTERVAL,
@@ -327,6 +358,15 @@ class GLOptionsFlow(OptionsFlow):
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(min=10, max=600, step=5, unit_of_measurement="s")
                 ),
+                vol.Optional(
+                    CONF_ALLOW_SUSPEND, default=current.get(CONF_ALLOW_SUSPEND, True)
+                ): bool,
+                vol.Optional(
+                    CONF_ALLOW_HIBERNATE, default=current.get(CONF_ALLOW_HIBERNATE, True)
+                ): bool,
+                vol.Optional(
+                    CONF_ALLOW_POWEROFF, default=current.get(CONF_ALLOW_POWEROFF, True)
+                ): bool,
                 vol.Optional(CONF_MAC, default=current.get(CONF_MAC, "")): str,
                 vol.Optional(
                     CONF_WOL_METHOD, default=current.get(CONF_WOL_METHOD, WOL_LOCAL)

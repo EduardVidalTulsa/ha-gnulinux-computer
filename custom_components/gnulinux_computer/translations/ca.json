@@ -32,6 +32,15 @@
         "data": {
           "sudo_password": "Contrasenya de sudo (opcional)"
         }
+      },
+      "power": {
+        "title": "Accions d'energia",
+        "description": "Quines accions pot fer Home Assistant en aquest ordinador? Als servidors, deixa-ho tot desmarcat.\n\nRepòs detectat: {detected}.",
+        "data": {
+          "allow_suspend": "Permet suspendre (RAM)",
+          "allow_hibernate": "Permet hibernar (disc)",
+          "allow_poweroff": "Permet apagar"
+        }
       }
     },
     "error": {
@@ -55,7 +64,10 @@
           "status_interval": "Interval d'estat",
           "mac": "MAC per a Wake-on-LAN",
           "broadcast_address": "Adreça de difusió WoL",
-          "wol_method": "Mètode de Wake-on-LAN"
+          "wol_method": "Mètode de Wake-on-LAN",
+          "allow_suspend": "Permet suspendre (RAM)",
+          "allow_hibernate": "Permet hibernar (disc)",
+          "allow_poweroff": "Permet apagar"
         }
       },
       "wol_computer": {

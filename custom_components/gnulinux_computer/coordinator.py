@@ -31,6 +31,7 @@ from .const import (
     DOMAIN,
     EVENT_UPDATES_AVAILABLE,
     POWER_ON,
+    allowed_power_options,
 )
 from .registry import check_digests
 from .remote import (
@@ -401,6 +402,10 @@ class Runtime:
             await async_wake(self.status.hass, entry)
             self.last_power_target = POWER_ON
             return
+        if action not in allowed_power_options(entry.options):
+            raise HomeAssistantError(
+                f"L'acció '{action}' no està permesa a {entry.title} (opcions de la integració)"
+            )
         if not self.status.online:
             raise HomeAssistantError(f"{entry.title} no és accessible")
         init = self.status.data.init if self.status.data else None

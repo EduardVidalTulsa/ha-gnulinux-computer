@@ -81,3 +81,22 @@ CONF_WOL_ROUTER_PASSWORD = "wol_router_password"
 CONF_WOL_ROUTER_KEY = "wol_router_key"
 CONF_WOL_ROUTER_INTERFACE = "wol_router_interface"
 CONF_WOL_ROUTER_HOST_KEY = "wol_router_host_key"
+
+# Allowed power actions (servers usually allow none of them)
+CONF_ALLOW_SUSPEND = "allow_suspend"
+CONF_ALLOW_HIBERNATE = "allow_hibernate"
+CONF_ALLOW_POWEROFF = "allow_poweroff"
+ALLOW_KEYS = {
+    POWER_SUSPEND: CONF_ALLOW_SUSPEND,
+    POWER_HIBERNATE: CONF_ALLOW_HIBERNATE,
+    POWER_OFF: CONF_ALLOW_POWEROFF,
+}
+
+
+def allowed_power_options(options: dict) -> list[str]:
+    """Power select options for these entry options (missing key = allowed)."""
+    return [
+        opt
+        for opt in POWER_OPTIONS
+        if opt not in ALLOW_KEYS or options.get(ALLOW_KEYS[opt], True)
+    ]

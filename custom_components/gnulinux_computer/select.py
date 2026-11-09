@@ -13,7 +13,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import GLConfigEntry
-from .const import POWER_OFF, POWER_ON, POWER_OPTIONS, POWER_REBOOT
+from .const import POWER_OFF, POWER_ON, POWER_OPTIONS, POWER_REBOOT, allowed_power_options
 from .coordinator import StatusCoordinator
 from .entity import GLEntity
 
@@ -29,12 +29,12 @@ class PowerSelect(GLEntity, CoordinatorEntity[StatusCoordinator], SelectEntity, 
     """Power state. Shows 'on' while reachable, otherwise the last requested state."""
 
     _attr_translation_key = "power"
-    _attr_options = POWER_OPTIONS
 
     def __init__(self, entry: GLConfigEntry, rt) -> None:
         """Initialize."""
         GLEntity.__init__(self, entry, rt, "power")
         CoordinatorEntity.__init__(self, rt.status)
+        self._attr_options = allowed_power_options(entry.options)
         self._off_state: str = POWER_OFF
 
     async def async_added_to_hass(self) -> None:
@@ -50,11 +50,11 @@ class PowerSelect(GLEntity, CoordinatorEntity[StatusCoordinator], SelectEntity, 
         return True
 
     @property
-    def current_option(self) -> str:
-        """Current state."""
+    def current_option(self) -> str | None:
+        """Current state; None (unknown) when off in a way that is not offered."""
         if self.coordinator.online:
             return POWER_ON
-        return self._off_state
+        return self._off_state if self._off_state in self.options else None
 
     async def async_select_option(self, option: str) -> None:
         """Change power state."""

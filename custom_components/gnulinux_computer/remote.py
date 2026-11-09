@@ -53,6 +53,8 @@ echo "@vendor"; cat /sys/class/dmi/id/sys_vendor 2>/dev/null
 echo "@model"; cat /sys/class/dmi/id/product_name 2>/dev/null || { tr -d '\0' < /proc/device-tree/model 2>/dev/null; echo; }
 echo "@mac"; dev=$(ip route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')
 [ -n "$dev" ] && cat "/sys/class/net/$dev/address"
+echo "@power"; cat /sys/power/state 2>/dev/null
+echo "@swap"; awk 'NR>1{s+=$3}END{print s+0}' /proc/swaps 2>/dev/null
 echo "@end"
 """
 
@@ -67,6 +69,8 @@ class Identity:
     manufacturer: str | None
     model: str | None
     mac: str | None
+    can_suspend: bool = False
+    can_hibernate: bool = False
 
 
 def _first(sec: dict[str, list[str]], key: str) -> str | None:
@@ -80,6 +84,11 @@ def parse_identity(text: str) -> Identity:
     """Parse the identification script output."""
     sec = split_sections(text)
     hostname = _first(sec, "hostname") or "linux"
+    states = (_first(sec, "power") or "").split()
+    try:
+        swap_kb = int(_first(sec, "swap") or 0)
+    except ValueError:
+        swap_kb = 0
     return Identity(
         machine_id=_first(sec, "machine_id") or hostname,
         hostname=hostname,
@@ -87,6 +96,8 @@ def parse_identity(text: str) -> Identity:
         manufacturer=_first(sec, "vendor"),
         model=_first(sec, "model"),
         mac=_first(sec, "mac"),
+        can_suspend="mem" in states,
+        can_hibernate="disk" in states and swap_kb > 0,
     )
 
 
