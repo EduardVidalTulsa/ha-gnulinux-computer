@@ -59,7 +59,7 @@ class LocationTracker(GLEntity, CoordinatorEntity[StatusCoordinator], TrackerEnt
         if cur is not None and cur.source != "ip":
             return
         last = await self.async_get_last_state()
-        if last is None or last.attributes.get("fix_source") in (None, "ip"):
+        if last is None or last.attributes.get("fix_source") in (None, "ip", "home_network"):
             return
         try:
             self.coordinator.location = Location(

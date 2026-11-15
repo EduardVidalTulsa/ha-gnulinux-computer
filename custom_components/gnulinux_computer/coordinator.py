@@ -13,6 +13,8 @@ import socket
 import time
 from typing import TYPE_CHECKING
 
+import aiohttp
+
 from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
@@ -185,27 +187,55 @@ class StatusCoordinator(DataUpdateCoordinator[StatusData]):
             self.location = data.location  # fast polls do not read the position
         if data.public_ip is not None:
             self.public_ip = data.public_ip
-            await self._locate_by_ip()
+            await self._locate_by_ip(fresh_fix=data.location is not None)
         return data
 
-    async def _locate_by_ip(self) -> None:
-        """Without a GNSS fix, place the computer roughly from its public IP.
+    async def _ha_public_ip(self) -> str | None:
+        """Public IPv4 of Home Assistant itself (shared by all entries, 5 min cache)."""
+        cache = self.hass.data.setdefault(f"{DOMAIN}_ha_public_ip", {})
+        if cache.get("ip") and time.monotonic() - cache.get("at", 0) < 300:
+            return cache["ip"]
+        try:
+            async with async_get_clientsession(self.hass).get(
+                "https://api.ipify.org", timeout=aiohttp.ClientTimeout(total=8)
+            ) as resp:
+                ip = (await resp.text()).strip() if resp.status == 200 else None
+        except (aiohttp.ClientError, TimeoutError):
+            ip = None
+        if ip:
+            cache.update(ip=ip, at=time.monotonic())
+        return ip or cache.get("ip")
 
-        One lookup per address change; a real fix always wins.
+    async def _locate_by_ip(self, fresh_fix: bool) -> None:
+        """Place a computer that has no GNSS fix right now.
+
+        1. Same public IP as Home Assistant: it uses the Internet connection
+           of home, so it is at home.
+        2. Otherwise keep the last real fix, if there was one.
+        3. Otherwise a rough position from the public IP (one lookup per
+           address change).
         """
         if not self._ip_location_enabled:
             return
         ip = self.public_ip.get("ipv4") or self.public_ip.get("ipv6")
-        if not ip or ip == self._located_ip:
+        if not ip:
             return
-        info = await locate_ip(async_get_clientsession(self.hass), ip)
-        if info is None:
+        if ip == await self._ha_public_ip():
+            if not fresh_fix:
+                cfg = self.hass.config
+                self.location = Location(cfg.latitude, cfg.longitude, None, None, "home_network")
             return
-        self._located_ip = ip
-        self.ip_info = info
-        if self.location is None or self.location.source == "ip":
+        if self.location is not None and self.location.source == "home_network":
+            self.location = None  # it left home
+        if ip != self._located_ip:
+            info = await locate_ip(async_get_clientsession(self.hass), ip)
+            if info is None:
+                return
+            self._located_ip = ip
+            self.ip_info = info
+        if self.ip_info and (self.location is None or self.location.source == "ip"):
             self.location = Location(
-                info["latitude"], info["longitude"], None, IP_LOCATION_ACCURACY, "ip"
+                self.ip_info["latitude"], self.ip_info["longitude"], None, IP_LOCATION_ACCURACY, "ip"
             )
 
     @property
