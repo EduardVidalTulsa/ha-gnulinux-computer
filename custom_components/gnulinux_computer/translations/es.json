@@ -57,7 +57,9 @@
       "cannot_connect": "No se puede conectar",
       "invalid_auth": "Autenticación no válida",
       "invalid_key": "No se puede leer la clave privada",
-      "no_sudo": "El usuario no puede convertirse en root: añádelo al grupo wheel/sudo, indica la contraseña de sudo o permítelo en doas.conf (permit nopass)"
+      "no_sudo": "El usuario no puede convertirse en root: añádelo al grupo wheel/sudo, indica la contraseña de sudo o permítelo en doas.conf (permit nopass)",
+      "key_rejected": "El ordenador no acepta esta clave. Añade la clave pública de arriba a ~/.ssh/authorized_keys del usuario en el ordenador y vuelve a enviar.",
+      "password_required": "Escribe la contraseña o elige otro método de autenticación."
     },
     "abort": {
       "already_configured": "Este ordenador ya está configurado; se han actualizado los datos de conexión",

@@ -273,6 +273,9 @@ class GLConfigFlow(ConfigFlow, domain=DOMAIN):
                 return {"base": "no_sudo"}
             res = await client.run(IDENTIFY_SCRIPT, timeout=30)
         except AuthFailed:
+            # Say what to do, not only that it failed.
+            if self._data.get(CONF_AUTH_METHOD) != AUTH_PASSWORD:
+                return {"base": "key_rejected"}
             return {"base": "invalid_auth"}
         except CannotConnect as err:
             _LOGGER.debug("Validation failed: %s", err)
@@ -343,7 +346,7 @@ class GLConfigFlow(ConfigFlow, domain=DOMAIN):
                 data[CONF_PASSWORD] = user_input.get(CONF_PASSWORD, "")
                 data.pop(CONF_KEY_PATH, None)
                 if not data[CONF_PASSWORD]:
-                    errors["base"] = "invalid_auth"
+                    errors[CONF_PASSWORD] = "password_required"
             else:
                 data.pop(CONF_PASSWORD, None)
                 data[CONF_KEY_PATH] = (

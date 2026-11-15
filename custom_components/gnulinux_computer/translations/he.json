@@ -57,7 +57,9 @@
       "cannot_connect": "לא ניתן להתחבר",
       "invalid_auth": "אימות לא תקין",
       "invalid_key": "לא ניתן לקרוא את המפתח הפרטי",
-      "no_sudo": "המשתמש אינו יכול לקבל הרשאות root: הוסף אותו לקבוצת wheel/sudo, ספק את סיסמת sudo, או אפשר זאת ב-doas.conf ‏(permit nopass)"
+      "no_sudo": "המשתמש אינו יכול לקבל הרשאות root: הוסף אותו לקבוצת wheel/sudo, ספק את סיסמת sudo, או אפשר זאת ב-doas.conf ‏(permit nopass)",
+      "key_rejected": "המחשב אינו מקבל את המפתח הזה. הוסף את המפתח הציבורי שמוצג למעלה ל-‎~/.ssh/authorized_keys‎ של המשתמש במחשב ושלח שוב.",
+      "password_required": "הזן את הסיסמה או בחר שיטת אימות אחרת."
     },
     "abort": {
       "already_configured": "המחשב הזה כבר מוגדר; נתוני החיבור עודכנו",

@@ -57,7 +57,9 @@
       "cannot_connect": "Connexion impossible",
       "invalid_auth": "Authentification non valide",
       "invalid_key": "Impossible de lire la clé privée",
-      "no_sudo": "L'utilisateur ne peut pas devenir root : ajoutez-le au groupe wheel/sudo, indiquez le mot de passe sudo ou autorisez-le dans doas.conf (permit nopass)"
+      "no_sudo": "L'utilisateur ne peut pas devenir root : ajoutez-le au groupe wheel/sudo, indiquez le mot de passe sudo ou autorisez-le dans doas.conf (permit nopass)",
+      "key_rejected": "L'ordinateur n'accepte pas cette clé. Ajoutez la clé publique ci-dessus à ~/.ssh/authorized_keys de l'utilisateur sur l'ordinateur, puis validez à nouveau.",
+      "password_required": "Saisissez le mot de passe ou choisissez une autre méthode d'authentification."
     },
     "abort": {
       "already_configured": "Cet ordinateur est déjà configuré ; les données de connexion ont été mises à jour",

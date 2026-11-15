@@ -57,7 +57,9 @@
       "cannot_connect": "No s'ha pogut connectar",
       "invalid_auth": "Autenticació incorrecta",
       "invalid_key": "No s'ha pogut llegir la clau privada",
-      "no_sudo": "L'usuari no pot fer de root: afegeix-lo al grup wheel/sudo, dona la contrasenya de sudo, o permet-lo a doas.conf (permit nopass)"
+      "no_sudo": "L'usuari no pot fer de root: afegeix-lo al grup wheel/sudo, dona la contrasenya de sudo, o permet-lo a doas.conf (permit nopass)",
+      "key_rejected": "L'ordinador no accepta aquesta clau. Afegeix la clau pública de dalt a ~/.ssh/authorized_keys de l'usuari a l'ordinador i torna a enviar.",
+      "password_required": "Escriu la contrasenya o tria un altre mètode d'autenticació."
     },
     "abort": {
       "already_configured": "Aquest ordinador ja està configurat; s'han actualitzat les dades de connexió",

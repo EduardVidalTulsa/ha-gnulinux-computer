@@ -57,7 +57,9 @@
       "cannot_connect": "Kan geen verbinding maken",
       "invalid_auth": "Ongeldige authenticatie",
       "invalid_key": "Kan de privésleutel niet lezen",
-      "no_sudo": "De gebruiker kan geen root worden: voeg hem toe aan de groep wheel/sudo, geef het sudo-wachtwoord op of sta het toe in doas.conf (permit nopass)"
+      "no_sudo": "De gebruiker kan geen root worden: voeg hem toe aan de groep wheel/sudo, geef het sudo-wachtwoord op of sta het toe in doas.conf (permit nopass)",
+      "key_rejected": "De computer accepteert deze sleutel niet. Voeg de publieke sleutel hierboven toe aan ~/.ssh/authorized_keys van de gebruiker op de computer en verzend opnieuw.",
+      "password_required": "Voer het wachtwoord in of kies een andere authenticatiemethode."
     },
     "abort": {
       "already_configured": "Deze computer is al geconfigureerd; de verbindingsgegevens zijn bijgewerkt",

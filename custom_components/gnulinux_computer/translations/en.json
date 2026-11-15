@@ -57,7 +57,9 @@
       "cannot_connect": "Cannot connect",
       "invalid_auth": "Invalid authentication",
       "invalid_key": "Cannot read the private key",
-      "no_sudo": "The user cannot become root: add it to the wheel/sudo group, give the sudo password, or allow it in doas.conf (permit nopass)"
+      "no_sudo": "The user cannot become root: add it to the wheel/sudo group, give the sudo password, or allow it in doas.conf (permit nopass)",
+      "key_rejected": "The computer does not accept this key. Add the public key shown above to ~/.ssh/authorized_keys of the user on the computer, then submit again.",
+      "password_required": "Enter the password, or choose another authentication method."
     },
     "abort": {
       "already_configured": "This computer is already configured; connection data updated",

@@ -57,7 +57,9 @@
       "cannot_connect": "无法连接",
       "invalid_auth": "认证无效",
       "invalid_key": "无法读取私钥",
-      "no_sudo": "该用户无法获得 root 权限：请将其加入 wheel/sudo 组、提供 sudo 密码，或在 doas.conf 中允许（permit nopass）"
+      "no_sudo": "该用户无法获得 root 权限：请将其加入 wheel/sudo 组、提供 sudo 密码，或在 doas.conf 中允许（permit nopass）",
+      "key_rejected": "计算机不接受此密钥。请将上方的公钥添加到计算机上该用户的 ~/.ssh/authorized_keys，然后重新提交。",
+      "password_required": "请输入密码，或选择其他认证方式。"
     },
     "abort": {
       "already_configured": "这台计算机已配置；连接数据已更新",
