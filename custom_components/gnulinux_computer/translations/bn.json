@@ -242,9 +242,6 @@
           "vpn": "VPN",
           "other": "অন্যান্য"
         }
-      },
-      "wifi_network": {
-        "name": "Wi-Fi নেটওয়ার্ক"
       }
     },
     "update": {

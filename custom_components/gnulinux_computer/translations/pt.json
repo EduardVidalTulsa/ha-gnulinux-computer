@@ -242,9 +242,6 @@
           "vpn": "VPN",
           "other": "Outra"
         }
-      },
-      "wifi_network": {
-        "name": "Rede Wi-Fi"
       }
     },
     "update": {

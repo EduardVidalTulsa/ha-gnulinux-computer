@@ -33,7 +33,7 @@ SysV init.
 | **Screenshot** | Button + `image` entity with the active graphical session: Plasma (spectacle), GNOME, wlroots (grim) and X11 (import/scrot). |
 | **Power** | A select with *On* (Wake-on-LAN), *Suspend (RAM)*, *Hibernate (disk)*, *Off* and *Reboot*. The last state is remembered while the computer is off. |
 | **System** | Online, load, memory, boot time, init system state and, on laptops, battery level sensors. |
-| **Network** | **Connection** sensor (Ethernet, Wi-Fi, mobile data or VPN, by the interface of the default route) and **Wi-Fi network** sensor (SSID) on computers with Wi-Fi. **IP address** sensor (address of the default route), one **IP &lt;interface&gt;** sensor per network interface (LAN, Wi-Fi, mobile data, Tailscale, WireGuard…) and **Public IP** sensor (IPv4 and IPv6 as seen from the Internet; the computer asks `api.ipify.org` every 5 minutes — can be turned off in the options). |
+| **Network** | **Connection** sensor: Ethernet, mobile data, VPN, or `Wi-Fi (network name)`, by the interface of the default route (type, interface and SSID as attributes). **IP address** sensor (address of the default route), one **IP &lt;interface&gt;** sensor per network interface (LAN, Wi-Fi, mobile data, Tailscale, WireGuard…) and **Public IP** sensor (IPv4 and IPv6 as seen from the Internet; the computer asks `api.ipify.org` every 5 minutes — can be turned off in the options). |
 
 ## Installation
 
@@ -218,7 +218,7 @@ Integració per controlar ordinadors GNU/Linux des de Home Assistant per SSH:
   L'acció `use_shared_key` hi migra els ordinadors que ja tens.
 - **Reautenticació**: si l'ordinador rebutja les credencials, Home Assistant
   deixa d'intentar-ho i et demana les noves.
-- **Connexió** (Ethernet, Wi-Fi, dades mòbils o VPN) i **xarxa Wi-Fi** (SSID) de cada màquina.
+- **Connexió** de cada màquina: Ethernet, dades mòbils, VPN o `Wi-Fi (nom de la xarxa)`.
 - **Adreces IP** de la màquina i **IP pública** (IPv4 i IPv6) que detecta.
 - **Ubicació aproximada per la IP pública** (opcional) quan no hi ha GPS.
 - **Ubicació** (GPS amb gpsd, provat; o ModemManager, sense provar) i **perfil eSIM**

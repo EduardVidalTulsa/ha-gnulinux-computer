@@ -242,9 +242,6 @@
           "vpn": "VPN",
           "other": "Other"
         }
-      },
-      "wifi_network": {
-        "name": "Wi-Fi network"
       }
     },
     "update": {

@@ -85,9 +85,6 @@
           "vpn": "mdi:vpn",
           "ethernet": "mdi:ethernet"
         }
-      },
-      "wifi_network": {
-        "default": "mdi:wifi"
       }
     },
     "update": {

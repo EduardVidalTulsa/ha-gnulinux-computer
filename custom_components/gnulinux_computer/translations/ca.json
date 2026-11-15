@@ -242,9 +242,6 @@
           "vpn": "VPN",
           "other": "Altra"
         }
-      },
-      "wifi_network": {
-        "name": "Xarxa Wi-Fi"
       }
     },
     "update": {

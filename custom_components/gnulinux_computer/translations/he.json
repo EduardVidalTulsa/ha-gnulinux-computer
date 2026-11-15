@@ -242,9 +242,6 @@
           "vpn": "VPN",
           "other": "אחר"
         }
-      },
-      "wifi_network": {
-        "name": "רשת Wi-Fi"
       }
     },
     "update": {

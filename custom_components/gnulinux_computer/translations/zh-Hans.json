@@ -242,9 +242,6 @@
           "vpn": "VPN",
           "other": "其他"
         }
-      },
-      "wifi_network": {
-        "name": "Wi-Fi 网络"
       }
     },
     "update": {

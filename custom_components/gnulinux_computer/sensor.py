@@ -17,16 +17,17 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import GLConfigEntry
 from .coordinator import BACKEND_LABELS, StatusCoordinator, UpdatesCoordinator, UpdatesData
-from .const import CONF_PUBLIC_IP
+from .const import CONF_MACHINE_ID, CONF_PUBLIC_IP, DOMAIN
 from .entity import GLEntity
 from .power import PowerValues
-from .remote import LINK_TYPES, StatusData, Volume
+from .remote import StatusData, Volume
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -35,6 +36,13 @@ class StatusSensorDescription(SensorEntityDescription):
 
     value: Callable[[StatusData], Any]
     attrs: Callable[[StatusData], dict[str, Any]] | None = None
+
+
+def _connection(s: StatusData) -> str | None:
+    ssid = s.wifi.get(s.link_interface or "")
+    if s.link_type == "wifi" and ssid:
+        return f"Wi-Fi ({ssid})"
+    return s.link_type
 
 
 def _boot_time(s: StatusData) -> datetime:
@@ -92,11 +100,12 @@ STATUS_SENSORS = (
     StatusSensorDescription(
         key="connection",
         translation_key="connection",
-        device_class=SensorDeviceClass.ENUM,
-        options=list(LINK_TYPES),
         entity_category=EntityCategory.DIAGNOSTIC,
-        value=lambda s: s.link_type,
+        # "Wi-Fi (network name)" on Wi-Fi; otherwise the kind of connection
+        # (ethernet, mobile, vpn...), which the translations name.
+        value=_connection,
         attrs=lambda s: {
+            "type": s.link_type,
             "interface": s.link_interface,
             "ssid": s.wifi.get(s.link_interface or "") or None,
         },
@@ -197,34 +206,12 @@ async def async_setup_entry(
     add_power()
     entry.async_on_unload(rt.status.async_add_listener(add_power))
 
-    has_wifi = False
-
-    @callback
-    def add_wifi() -> None:
-        nonlocal has_wifi
-        if not has_wifi and rt.status.online and rt.status.data.has_wifi:
-            has_wifi = True
-            async_add_entities(
-                [
-                    StatusSensor(
-                        entry,
-                        rt,
-                        StatusSensorDescription(
-                            key="wifi_network",
-                            translation_key="wifi_network",
-                            entity_category=EntityCategory.DIAGNOSTIC,
-                            # SSID of the default route when it is Wi-Fi, else of any
-                            # associated interface; unknown when not associated.
-                            value=lambda s: s.wifi.get(s.link_interface or "")
-                            or next(iter(s.wifi.values()), None),
-                            attrs=lambda s: {"networks": s.wifi},
-                        ),
-                    )
-                ]
-            )
-
-    add_wifi()
-    entry.async_on_unload(rt.status.async_add_listener(add_wifi))
+    # The network name used to be a sensor of its own; now it is part of
+    # the Connection sensor (state and "ssid" attribute).
+    registry = er.async_get(hass)
+    old = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.data[CONF_MACHINE_ID]}_wifi_network")
+    if old:
+        registry.async_remove(old)
 
     has_battery = False
 
