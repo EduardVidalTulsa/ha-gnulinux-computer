@@ -309,6 +309,11 @@
       "location": {
         "name": "الموقع"
       }
+    },
+    "switch": {
+      "mobile_data": {
+        "name": "بيانات الجوال"
+      }
     }
   },
   "services": {

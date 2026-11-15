@@ -133,6 +133,14 @@
       "location": {
         "default": "mdi:crosshairs-gps"
       }
+    },
+    "switch": {
+      "mobile_data": {
+        "default": "mdi:signal-cellular-3",
+        "state": {
+          "off": "mdi:signal-cellular-outline"
+        }
+      }
     }
   },
   "services": {

@@ -44,6 +44,7 @@ PLATFORMS = [
     Platform.IMAGE,
     Platform.SELECT,
     Platform.SENSOR,
+    Platform.SWITCH,
     Platform.UPDATE,
 ]
 

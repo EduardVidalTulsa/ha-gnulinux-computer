@@ -131,6 +131,10 @@ for p in /sys/class/power_supply/*; do
   else continue; fi
   echo "$(basename "$p") $(cat "$p/status" 2>/dev/null) $w"
 done
+if command -v nmcli >/dev/null 2>&1 && nmcli -t -f TYPE device 2>/dev/null | grep -q '^gsm$'; then
+  # Mobile broadband modem managed by NetworkManager
+  echo "@wwan"; nmcli -t -f WWAN radio 2>/dev/null
+fi
 echo "@battery_level"
 for p in /sys/class/power_supply/*; do
   [ "$(cat "$p/type" 2>/dev/null)" = Battery ] || continue
@@ -322,6 +326,7 @@ class StatusData:
     location: Location | None = None  # only read on slow polls
     addresses: dict[str, list[str]] = field(default_factory=dict)  # interface -> IPs
     primary_ip: str | None = None
+    wwan_enabled: bool | None = None  # mobile broadband radio; None: no modem
     battery_level: int | None = None  # percent (mean when there are several)
     battery_status: str | None = None  # Charging, Discharging, Full...
     public_ip: dict[str, str] | None = None  # {"ipv4": ..., "ipv6": ...}; slow polls
@@ -423,6 +428,11 @@ def parse_status(text: str, units: list[str]) -> StatusData:
         location=parse_location(sec),
         **_parse_addresses(sec),
         **_parse_battery(sec),
+        wwan_enabled=(
+            {"enabled": True, "disabled": False}.get(_first(sec, "wwan") or "")
+            if "wwan" in sec
+            else None
+        ),
     )
 
 
@@ -1225,7 +1235,8 @@ _LPAC = r"""
 command -v lpac >/dev/null 2>&1 || exit 0
 if [ -r /etc/default/lpac ]; then set -a; . /etc/default/lpac; set +a; fi
 lp() {
-  if out=$(timeout 60 lpac "$@" 2>/dev/null); then printf '%s\n' "$out"
+  # As the user first; modem devices (MBIM/QMI proxy, AT port) usually need root.
+  if out=$(timeout 40 lpac "$@" 2>/dev/null) && printf '%s' "$out" | grep -q '"code":0'; then printf '%s\n' "$out"
   else $SUDO env $(env | grep '^LPAC_') timeout 60 lpac "$@" 2>/dev/null; fi
 }
 """
@@ -1291,6 +1302,10 @@ def parse_esim_profiles(text: str) -> list[EsimProfile] | None:
         iccid = str(item.get("iccid") or "")
         if not _ICCID_RE.match(iccid):
             continue
+        # Factory test profiles (no real subscription): enabling one by
+        # mistake would only cut the connection.
+        if str(item.get("profileClass", "")).lower() == "test":
+            continue
         name = (
             item.get("profileNickname")
             or item.get("profileName")
@@ -1306,3 +1321,9 @@ def parse_esim_profiles(text: str) -> list[EsimProfile] | None:
             )
         )
     return profiles
+
+
+def wwan_script(enable: bool) -> str:
+    """Turn the mobile broadband radio on or off (NetworkManager)."""
+    state = "on" if enable else "off"
+    return f"nmcli radio wwan {state} 2>/dev/null || $SUDO nmcli radio wwan {state}\n"

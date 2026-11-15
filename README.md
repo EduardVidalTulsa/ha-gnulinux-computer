@@ -27,7 +27,8 @@ SysV init.
 | **Services** | Failed services; running / enabled / disabled service lists; one binary sensor per service you choose to monitor; `gnulinux_computer.service_control` action (start, stop, restart, reload, enable, disable). systemd, OpenRC (`rc-service`) and SysV (`service`). |
 | **Custom commands** | Define your own commands per computer in the options (`Name = shell command`, one per line). Each one becomes a **button**; the `gnulinux_computer.run_command` action runs one by name and returns exit code and output, and the `gnulinux_computer_command_finished` event fires when it ends. Only commands written in the options can run: there is no action that accepts free text. |
 | **Location** | Computers with a GNSS receiver (gpsd or ModemManager) get a `device_tracker` with their position (tested with gpsd; the ModemManager source is untested). |
-| **eSIM** | With [lpac](https://github.com/estkme-group/lpac) installed, a select shows the eSIM profiles and switches the active one. *Not tested on real hardware yet.* |
+| **eSIM** | With [lpac](https://github.com/estkme-group/lpac) installed, a select shows the eSIM profiles (factory test profiles are hidden) and switches the active one. Listing is tested on a Quectel EM160R-GL over MBIM; *switching between two profiles is not tested yet.* |
+| **Mobile data** | Computers with a modem managed by NetworkManager get a switch that turns the mobile broadband radio on and off. Do not turn it off on a computer you only reach through that modem. |
 | **Volumes** | One sensor per mounted filesystem with used percentage, size and free space. Bind mounts and btrfs subvolumes of the same filesystem are grouped. |
 | **Screenshot** | Button + `image` entity with the active graphical session: Plasma (spectacle), GNOME, wlroots (grim) and X11 (import/scrot). |
 | **Power** | A select with *On* (Wake-on-LAN), *Suspend (RAM)*, *Hibernate (disk)*, *Off* and *Reboot*. The last state is remembered while the computer is off. |
@@ -160,7 +161,7 @@ automation:
 | pacman updates | `pacman-contrib` (`checkupdates`) |
 | Alpine | `sudo`, or `doas` with `permit nopass`; OpenRC services are detected automatically |
 | Location | `gpsd` (`gpspipe`), or ModemManager with GPS enabled (`mmcli --location-enable-gps-raw`) |
-| eSIM | `lpac`; its `LPAC_*` settings can be put in `/etc/default/lpac` |
+| eSIM | `lpac` built with the driver your modem needs (MBIM/QMI builds are not always packaged); its `LPAC_*` settings go in `/etc/default/lpac`. **Set the UIM slot of the eSIM** (e.g. `LPAC_APDU_MBIM_UIM_SLOT=2`): with the default slot lpac switches the modem to slot 1 and the connection drops. |
 | AUR | `yay` or `paru`; does not work when logging in as `root` |
 | Screenshots | `spectacle`, `gnome-screenshot`, `grim`, `import` or `scrot` |
 | Suspend / hibernate | working sleep states (hibernate needs swap + `resume`) |

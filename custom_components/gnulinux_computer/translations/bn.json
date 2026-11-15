@@ -309,6 +309,11 @@
       "location": {
         "name": "অবস্থান"
       }
+    },
+    "switch": {
+      "mobile_data": {
+        "name": "মোবাইল ডেটা"
+      }
     }
   },
   "services": {

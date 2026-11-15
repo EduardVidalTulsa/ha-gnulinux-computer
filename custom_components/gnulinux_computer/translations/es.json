@@ -309,6 +309,11 @@
       "location": {
         "name": "Ubicación"
       }
+    },
+    "switch": {
+      "mobile_data": {
+        "name": "Datos móviles"
+      }
     }
   },
   "services": {
