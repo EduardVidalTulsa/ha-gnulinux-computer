@@ -26,6 +26,7 @@ from .const import (
     COMMAND_OUTPUT_MAX,
     COMMAND_TIMEOUT,
     CONF_COMMANDS,
+    CONF_IP_LOCATION,
     CONF_NOTIFY,
     CONF_PUBLIC_IP,
     CONF_STATUS_INTERVAL,
@@ -36,11 +37,12 @@ from .const import (
     DOMAIN,
     EVENT_COMMAND_FINISHED,
     EVENT_UPDATES_AVAILABLE,
+    IP_LOCATION_ACCURACY,
     POWER_ON,
     allowed_power_options,
 )
 from .power import SLOW_INTERVAL, PowerValues, RaplTracker, compute as compute_power
-from .registry import check_digests
+from .registry import check_digests, locate_ip
 from .remote import (
     JOBS_RUNNING_SCRIPT,
     PACMAN_PREFLIGHT,
@@ -151,6 +153,11 @@ class StatusCoordinator(DataUpdateCoordinator[StatusData]):
         self.location: Location | None = None
         self.public_ip: dict[str, str] = {}
         self._public_ip_enabled: bool = entry.options.get(CONF_PUBLIC_IP, True)
+        self._ip_location_enabled: bool = self._public_ip_enabled and entry.options.get(
+            CONF_IP_LOCATION, False
+        )
+        self.ip_info: dict = {}  # what the lookup of the public IP said
+        self._located_ip: str | None = None
         self._last_slow: float | None = None
 
     async def _async_update_data(self) -> StatusData:
@@ -178,7 +185,28 @@ class StatusCoordinator(DataUpdateCoordinator[StatusData]):
             self.location = data.location  # fast polls do not read the position
         if data.public_ip is not None:
             self.public_ip = data.public_ip
+            await self._locate_by_ip()
         return data
+
+    async def _locate_by_ip(self) -> None:
+        """Without a GNSS fix, place the computer roughly from its public IP.
+
+        One lookup per address change; a real fix always wins.
+        """
+        if not self._ip_location_enabled:
+            return
+        ip = self.public_ip.get("ipv4") or self.public_ip.get("ipv6")
+        if not ip or ip == self._located_ip:
+            return
+        info = await locate_ip(async_get_clientsession(self.hass), ip)
+        if info is None:
+            return
+        self._located_ip = ip
+        self.ip_info = info
+        if self.location is None or self.location.source == "ip":
+            self.location = Location(
+                info["latitude"], info["longitude"], None, IP_LOCATION_ACCURACY, "ip"
+            )
 
     @property
     def online(self) -> bool:

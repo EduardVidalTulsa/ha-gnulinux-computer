@@ -76,6 +76,18 @@
       },
       "ip_interface": {
         "default": "mdi:ip-outline"
+      },
+      "connection": {
+        "default": "mdi:lan",
+        "state": {
+          "wifi": "mdi:wifi",
+          "mobile": "mdi:signal-cellular-3",
+          "vpn": "mdi:vpn",
+          "ethernet": "mdi:ethernet"
+        }
+      },
+      "wifi_network": {
+        "default": "mdi:wifi"
       }
     },
     "update": {

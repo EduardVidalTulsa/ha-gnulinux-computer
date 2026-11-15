@@ -83,7 +83,8 @@
           "allow_hibernate": "Permet hibernar (disc)",
           "allow_poweroff": "Permet apagar",
           "commands": "Ordres personalitzades",
-          "public_ip": "Detecta la IP pública (l'ordinador ho pregunta a api.ipify.org)"
+          "public_ip": "Detecta la IP pública (l'ordinador ho pregunta a api.ipify.org)",
+          "ip_location": "Ubicació aproximada per la IP pública quan no hi ha GPS (pregunta a ipwho.is)"
         },
         "data_description": {
           "commands": "Una per línia: `Nom = ordre de shell`. Cadascuna es converteix en un botó i es pot executar amb l'acció run_command. Fes servir `$SUDO` per executar com a root, p. ex. `Còpia = $SUDO systemctl start backup.service`. Temps màxim: 5 minuts."
@@ -231,6 +232,19 @@
       },
       "battery_level": {
         "name": "Bateria"
+      },
+      "connection": {
+        "name": "Connexió",
+        "state": {
+          "ethernet": "Ethernet",
+          "wifi": "Wi-Fi",
+          "mobile": "Dades mòbils",
+          "vpn": "VPN",
+          "other": "Altra"
+        }
+      },
+      "wifi_network": {
+        "name": "Xarxa Wi-Fi"
       }
     },
     "update": {

@@ -26,7 +26,7 @@ from .coordinator import BACKEND_LABELS, StatusCoordinator, UpdatesCoordinator, 
 from .const import CONF_PUBLIC_IP
 from .entity import GLEntity
 from .power import PowerValues
-from .remote import StatusData, Volume
+from .remote import LINK_TYPES, StatusData, Volume
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -88,6 +88,18 @@ STATUS_SENSORS = (
         entity_category=EntityCategory.DIAGNOSTIC,
         value=lambda s: s.primary_ip,
         attrs=lambda s: {"addresses": s.addresses},
+    ),
+    StatusSensorDescription(
+        key="connection",
+        translation_key="connection",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(LINK_TYPES),
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value=lambda s: s.link_type,
+        attrs=lambda s: {
+            "interface": s.link_interface,
+            "ssid": s.wifi.get(s.link_interface or "") or None,
+        },
     ),
     StatusSensorDescription(
         key="services_running",
@@ -184,6 +196,35 @@ async def async_setup_entry(
 
     add_power()
     entry.async_on_unload(rt.status.async_add_listener(add_power))
+
+    has_wifi = False
+
+    @callback
+    def add_wifi() -> None:
+        nonlocal has_wifi
+        if not has_wifi and rt.status.online and rt.status.data.has_wifi:
+            has_wifi = True
+            async_add_entities(
+                [
+                    StatusSensor(
+                        entry,
+                        rt,
+                        StatusSensorDescription(
+                            key="wifi_network",
+                            translation_key="wifi_network",
+                            entity_category=EntityCategory.DIAGNOSTIC,
+                            # SSID of the default route when it is Wi-Fi, else of any
+                            # associated interface; unknown when not associated.
+                            value=lambda s: s.wifi.get(s.link_interface or "")
+                            or next(iter(s.wifi.values()), None),
+                            attrs=lambda s: {"networks": s.wifi},
+                        ),
+                    )
+                ]
+            )
+
+    add_wifi()
+    entry.async_on_unload(rt.status.async_add_listener(add_wifi))
 
     has_battery = False
 

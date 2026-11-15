@@ -83,7 +83,8 @@
           "allow_hibernate": "Permitir hibernar (disco)",
           "allow_poweroff": "Permitir desligar",
           "commands": "Comandos personalizados",
-          "public_ip": "Detetar o IP público (o computador pergunta a api.ipify.org)"
+          "public_ip": "Detetar o IP público (o computador pergunta a api.ipify.org)",
+          "ip_location": "Localização aproximada pelo IP público quando não há GPS (pergunta a ipwho.is)"
         },
         "data_description": {
           "commands": "Um por linha: `Nome = comando de shell`. Cada um torna-se um botão e pode ser executado com a ação run_command. Use `$SUDO` para executar como root, p. ex. `Backup = $SUDO systemctl start backup.service`. Tempo máximo: 5 minutos."
@@ -231,6 +232,19 @@
       },
       "battery_level": {
         "name": "Bateria"
+      },
+      "connection": {
+        "name": "Ligação",
+        "state": {
+          "ethernet": "Ethernet",
+          "wifi": "Wi-Fi",
+          "mobile": "Dados móveis",
+          "vpn": "VPN",
+          "other": "Outra"
+        }
+      },
+      "wifi_network": {
+        "name": "Rede Wi-Fi"
       }
     },
     "update": {

@@ -83,7 +83,8 @@
           "allow_hibernate": "Autoriser l'hibernation (disque)",
           "allow_poweroff": "Autoriser l'extinction",
           "commands": "Commandes personnalisées",
-          "public_ip": "Détecter l'IP publique (l'ordinateur interroge api.ipify.org)"
+          "public_ip": "Détecter l'IP publique (l'ordinateur interroge api.ipify.org)",
+          "ip_location": "Position approximative d'après l'IP publique en l'absence de GPS (interroge ipwho.is)"
         },
         "data_description": {
           "commands": "Une par ligne : `Nom = commande shell`. Chacune devient un bouton et peut être exécutée avec l'action run_command. Utilisez `$SUDO` pour exécuter en root, p. ex. `Backup = $SUDO systemctl start backup.service`. Délai maximal : 5 minutes."
@@ -231,6 +232,19 @@
       },
       "battery_level": {
         "name": "Batterie"
+      },
+      "connection": {
+        "name": "Connexion",
+        "state": {
+          "ethernet": "Ethernet",
+          "wifi": "Wi-Fi",
+          "mobile": "Données mobiles",
+          "vpn": "VPN",
+          "other": "Autre"
+        }
+      },
+      "wifi_network": {
+        "name": "Réseau Wi-Fi"
       }
     },
     "update": {

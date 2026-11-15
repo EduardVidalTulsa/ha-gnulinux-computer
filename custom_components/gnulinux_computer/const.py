@@ -28,6 +28,9 @@ CONF_UPDATE_INTERVAL = "update_interval"
 CONF_UNITS = "units"
 CONF_NOTIFY = "notify"
 CONF_PUBLIC_IP = "public_ip"
+CONF_IP_LOCATION = "ip_location"
+# Rough position from the public IP (city level at best): metres of uncertainty
+IP_LOCATION_ACCURACY = 25000
 
 DEFAULT_PORT = 22
 DEFAULT_BROADCAST = "255.255.255.255"

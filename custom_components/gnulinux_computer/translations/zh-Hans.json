@@ -83,7 +83,8 @@
           "allow_hibernate": "允许休眠（磁盘）",
           "allow_poweroff": "允许关机",
           "commands": "自定义命令",
-          "public_ip": "检测公网 IP（由计算机向 api.ipify.org 查询）"
+          "public_ip": "检测公网 IP（由计算机向 api.ipify.org 查询）",
+          "ip_location": "没有 GPS 时根据公网 IP 估算位置（查询 ipwho.is）"
         },
         "data_description": {
           "commands": "每行一条：`名称 = shell 命令`。每条命令会成为一个按钮，也可以通过 run_command 动作运行。使用 `$SUDO` 以 root 身份运行，例如 `Backup = $SUDO systemctl start backup.service`。超时：5 分钟。"
@@ -231,6 +232,19 @@
       },
       "battery_level": {
         "name": "电池"
+      },
+      "connection": {
+        "name": "连接方式",
+        "state": {
+          "ethernet": "以太网",
+          "wifi": "Wi-Fi",
+          "mobile": "移动数据",
+          "vpn": "VPN",
+          "other": "其他"
+        }
+      },
+      "wifi_network": {
+        "name": "Wi-Fi 网络"
       }
     },
     "update": {

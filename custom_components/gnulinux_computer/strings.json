@@ -83,7 +83,8 @@
           "allow_hibernate": "Allow hibernate (disk)",
           "allow_poweroff": "Allow power off",
           "commands": "Custom commands",
-          "public_ip": "Detect the public IP (the computer asks api.ipify.org)"
+          "public_ip": "Detect the public IP (the computer asks api.ipify.org)",
+          "ip_location": "Approximate location from the public IP when there is no GPS (asks ipwho.is)"
         },
         "data_description": {
           "commands": "One per line: `Name = shell command`. Each becomes a button and can be run with the run_command action. Use `$SUDO` to run as root, e.g. `Backup = $SUDO systemctl start backup.service`. Timeout: 5 minutes."
@@ -231,6 +232,19 @@
       },
       "battery_level": {
         "name": "Battery"
+      },
+      "connection": {
+        "name": "Connection",
+        "state": {
+          "ethernet": "Ethernet",
+          "wifi": "Wi-Fi",
+          "mobile": "Mobile data",
+          "vpn": "VPN",
+          "other": "Other"
+        }
+      },
+      "wifi_network": {
+        "name": "Wi-Fi network"
       }
     },
     "update": {

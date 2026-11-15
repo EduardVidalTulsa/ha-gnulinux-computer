@@ -83,7 +83,8 @@
           "allow_hibernate": "হাইবারনেটের অনুমতি দিন (ডিস্ক)",
           "allow_poweroff": "বন্ধ করার অনুমতি দিন",
           "commands": "কাস্টম কমান্ড",
-          "public_ip": "পাবলিক IP শনাক্ত করুন (কম্পিউটার api.ipify.org-কে জিজ্ঞেস করে)"
+          "public_ip": "পাবলিক IP শনাক্ত করুন (কম্পিউটার api.ipify.org-কে জিজ্ঞেস করে)",
+          "ip_location": "GPS না থাকলে পাবলিক IP থেকে আনুমানিক অবস্থান (ipwho.is-কে জিজ্ঞেস করে)"
         },
         "data_description": {
           "commands": "প্রতি লাইনে একটি: `নাম = shell কমান্ড`। প্রতিটি একটি বোতাম হয়ে যায় এবং run_command অ্যাকশন দিয়ে চালানো যায়। root হিসেবে চালাতে `$SUDO` ব্যবহার করুন, যেমন `Backup = $SUDO systemctl start backup.service`। সময়সীমা: ৫ মিনিট।"
@@ -231,6 +232,19 @@
       },
       "battery_level": {
         "name": "ব্যাটারি"
+      },
+      "connection": {
+        "name": "সংযোগ",
+        "state": {
+          "ethernet": "ইথারনেট",
+          "wifi": "Wi-Fi",
+          "mobile": "মোবাইল ডেটা",
+          "vpn": "VPN",
+          "other": "অন্যান্য"
+        }
+      },
+      "wifi_network": {
+        "name": "Wi-Fi নেটওয়ার্ক"
       }
     },
     "update": {

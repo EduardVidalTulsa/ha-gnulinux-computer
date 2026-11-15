@@ -83,7 +83,8 @@
           "allow_hibernate": "Sluimerstand toestaan (schijf)",
           "allow_poweroff": "Uitschakelen toestaan",
           "commands": "Aangepaste opdrachten",
-          "public_ip": "Het publieke IP-adres bepalen (de computer vraagt het aan api.ipify.org)"
+          "public_ip": "Het publieke IP-adres bepalen (de computer vraagt het aan api.ipify.org)",
+          "ip_location": "Geschatte locatie op basis van het publieke IP-adres als er geen gps is (vraagt ipwho.is)"
         },
         "data_description": {
           "commands": "Eén per regel: `Naam = shell-opdracht`. Elke opdracht wordt een knop en kan worden uitgevoerd met de actie run_command. Gebruik `$SUDO` om als root uit te voeren, bijv. `Backup = $SUDO systemctl start backup.service`. Maximale duur: 5 minuten."
@@ -231,6 +232,19 @@
       },
       "battery_level": {
         "name": "Accu"
+      },
+      "connection": {
+        "name": "Verbinding",
+        "state": {
+          "ethernet": "Ethernet",
+          "wifi": "Wifi",
+          "mobile": "Mobiele data",
+          "vpn": "VPN",
+          "other": "Anders"
+        }
+      },
+      "wifi_network": {
+        "name": "Wifi-netwerk"
       }
     },
     "update": {

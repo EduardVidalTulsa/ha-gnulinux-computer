@@ -26,14 +26,14 @@ SysV init.
 | **Reboot required** | On when the running kernel or NVIDIA driver no longer matches the installed one, or when the distribution asks for it (`/run/reboot-required`, `needs-restarting`, …). |
 | **Services** | Failed services; running / enabled / disabled service lists; one binary sensor per service you choose to monitor; `gnulinux_computer.service_control` action (start, stop, restart, reload, enable, disable). systemd, OpenRC (`rc-service`) and SysV (`service`). |
 | **Custom commands** | Define your own commands per computer in the options (`Name = shell command`, one per line). Each one becomes a **button**; the `gnulinux_computer.run_command` action runs one by name and returns exit code and output, and the `gnulinux_computer_command_finished` event fires when it ends. Only commands written in the options can run: there is no action that accepts free text. |
-| **Location** | Computers with a GNSS receiver (gpsd or ModemManager) get a `device_tracker` with their position (tested with gpsd; the ModemManager source is untested). |
+| **Location** | Computers with a GNSS receiver (gpsd or ModemManager) get a `device_tracker` with their position (tested with gpsd; the ModemManager source is untested). Without a receiver, an option (off by default) places the computer **approximately from its public IP**: Home Assistant asks `ipwho.is` once per address change. That is city level at best and can be far off (mobile operators, VPNs), so it is reported with a 25 km accuracy radius and `fix_source: ip`, together with city, country and whether it is in the EU. A real GNSS fix always takes precedence. |
 | **eSIM** | With [lpac](https://github.com/estkme-group/lpac) installed, a select shows the eSIM profiles (factory test profiles are hidden) and switches the active one. Listing is tested on a Quectel EM160R-GL over MBIM; *switching between two profiles is not tested yet.* |
 | **Mobile data** | Computers with a modem managed by NetworkManager get a switch that turns the mobile broadband radio on and off. Do not turn it off on a computer you only reach through that modem. |
 | **Volumes** | One sensor per mounted filesystem with used percentage, size and free space. Bind mounts and btrfs subvolumes of the same filesystem are grouped. |
 | **Screenshot** | Button + `image` entity with the active graphical session: Plasma (spectacle), GNOME, wlroots (grim) and X11 (import/scrot). |
 | **Power** | A select with *On* (Wake-on-LAN), *Suspend (RAM)*, *Hibernate (disk)*, *Off* and *Reboot*. The last state is remembered while the computer is off. |
 | **System** | Online, load, memory, boot time, init system state and, on laptops, battery level sensors. |
-| **Network** | **IP address** sensor (address of the default route), one **IP &lt;interface&gt;** sensor per network interface (LAN, Wi-Fi, mobile data, Tailscale, WireGuard…) and **Public IP** sensor (IPv4 and IPv6 as seen from the Internet; the computer asks `api.ipify.org` every 5 minutes — can be turned off in the options). |
+| **Network** | **Connection** sensor (Ethernet, Wi-Fi, mobile data or VPN, by the interface of the default route) and **Wi-Fi network** sensor (SSID) on computers with Wi-Fi. **IP address** sensor (address of the default route), one **IP &lt;interface&gt;** sensor per network interface (LAN, Wi-Fi, mobile data, Tailscale, WireGuard…) and **Public IP** sensor (IPv4 and IPv6 as seen from the Internet; the computer asks `api.ipify.org` every 5 minutes — can be turned off in the options). |
 
 ## Installation
 
@@ -218,7 +218,9 @@ Integració per controlar ordinadors GNU/Linux des de Home Assistant per SSH:
   L'acció `use_shared_key` hi migra els ordinadors que ja tens.
 - **Reautenticació**: si l'ordinador rebutja les credencials, Home Assistant
   deixa d'intentar-ho i et demana les noves.
+- **Connexió** (Ethernet, Wi-Fi, dades mòbils o VPN) i **xarxa Wi-Fi** (SSID) de cada màquina.
 - **Adreces IP** de la màquina i **IP pública** (IPv4 i IPv6) que detecta.
+- **Ubicació aproximada per la IP pública** (opcional) quan no hi ha GPS.
 - **Ubicació** (GPS amb gpsd, provat; o ModemManager, sense provar) i **perfil eSIM**
   (lpac, encara sense provar amb maquinari real).
 - **Actualitzacions** de pacman, AUR, DNF/yum, rpm-ostree, zypper, APT, apk, Flatpak, Snap i

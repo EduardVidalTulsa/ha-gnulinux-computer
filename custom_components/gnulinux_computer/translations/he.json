@@ -83,7 +83,8 @@
           "allow_hibernate": "אפשר שנת חורף (דיסק)",
           "allow_poweroff": "אפשר כיבוי",
           "commands": "פקודות מותאמות אישית",
-          "public_ip": "זהה את כתובת ה-IP הציבורית (המחשב שואל את api.ipify.org)"
+          "public_ip": "זהה את כתובת ה-IP הציבורית (המחשב שואל את api.ipify.org)",
+          "ip_location": "מיקום משוער לפי כתובת ה-IP הציבורית כשאין GPS (שואל את ipwho.is)"
         },
         "data_description": {
           "commands": "אחת בכל שורה: `שם = פקודת shell`. כל פקודה הופכת ללחצן וניתן להריץ אותה עם הפעולה run_command. השתמש ב-`$SUDO` כדי להריץ כ-root, למשל `Backup = $SUDO systemctl start backup.service`. זמן מרבי: 5 דקות."
@@ -231,6 +232,19 @@
       },
       "battery_level": {
         "name": "סוללה"
+      },
+      "connection": {
+        "name": "חיבור",
+        "state": {
+          "ethernet": "Ethernet",
+          "wifi": "Wi-Fi",
+          "mobile": "נתונים סלולריים",
+          "vpn": "VPN",
+          "other": "אחר"
+        }
+      },
+      "wifi_network": {
+        "name": "רשת Wi-Fi"
       }
     },
     "update": {

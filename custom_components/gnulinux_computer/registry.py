@@ -133,3 +133,32 @@ async def check_digests(
 
     await asyncio.gather(*(one(r) for r in refs))
     return results
+
+
+async def locate_ip(session: aiohttp.ClientSession, ip: str) -> dict | None:
+    """Approximate position of a public IP address (ipwho.is, no account needed).
+
+    City level at best, sometimes the operator's hub hundreds of km away.
+    """
+    try:
+        if not ipaddress.ip_address(ip).is_global:
+            return None
+        async with session.get(f"https://ipwho.is/{ip}", timeout=TIMEOUT) as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json(content_type=None)
+    except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+        _LOGGER.debug("IP location failed: %s", err)
+        return None
+    if not data.get("success") or data.get("latitude") is None or data.get("longitude") is None:
+        return None
+    return {
+        "latitude": float(data["latitude"]),
+        "longitude": float(data["longitude"]),
+        "city": data.get("city"),
+        "region": data.get("region"),
+        "country": data.get("country"),
+        "country_code": data.get("country_code"),
+        "is_eu": data.get("is_eu"),
+        "operator": (data.get("connection") or {}).get("isp"),
+    }

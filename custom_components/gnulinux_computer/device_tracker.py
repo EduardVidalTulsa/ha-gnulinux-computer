@@ -74,4 +74,9 @@ class LocationTracker(GLEntity, CoordinatorEntity[StatusCoordinator], TrackerEnt
         loc = self.coordinator.location
         if loc is None:
             return None
-        return {"altitude": loc.altitude, "fix_source": loc.source}
+        attrs: dict[str, Any] = {"altitude": loc.altitude, "fix_source": loc.source}
+        if loc.source == "ip":
+            # Approximate: where the public IP is registered
+            info = self.coordinator.ip_info
+            attrs.update({k: info.get(k) for k in ("city", "region", "country", "country_code", "is_eu")})
+        return attrs

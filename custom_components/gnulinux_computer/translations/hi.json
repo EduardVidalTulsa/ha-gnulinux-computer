@@ -83,7 +83,8 @@
           "allow_hibernate": "हाइबरनेट की अनुमति दें (डिस्क)",
           "allow_poweroff": "बंद करने की अनुमति दें",
           "commands": "कस्टम कमांड",
-          "public_ip": "सार्वजनिक IP पता लगाएँ (कंप्यूटर api.ipify.org से पूछता है)"
+          "public_ip": "सार्वजनिक IP पता लगाएँ (कंप्यूटर api.ipify.org से पूछता है)",
+          "ip_location": "GPS न होने पर सार्वजनिक IP से अनुमानित स्थान (ipwho.is से पूछता है)"
         },
         "data_description": {
           "commands": "प्रति पंक्ति एक: `नाम = shell कमांड`। हर कमांड एक बटन बन जाता है और run_command क्रिया से चलाया जा सकता है। root के रूप में चलाने के लिए `$SUDO` का उपयोग करें, जैसे `Backup = $SUDO systemctl start backup.service`। समय-सीमा: 5 मिनट।"
@@ -231,6 +232,19 @@
       },
       "battery_level": {
         "name": "बैटरी"
+      },
+      "connection": {
+        "name": "कनेक्शन",
+        "state": {
+          "ethernet": "ईथरनेट",
+          "wifi": "Wi-Fi",
+          "mobile": "मोबाइल डेटा",
+          "vpn": "VPN",
+          "other": "अन्य"
+        }
+      },
+      "wifi_network": {
+        "name": "Wi-Fi नेटवर्क"
       }
     },
     "update": {

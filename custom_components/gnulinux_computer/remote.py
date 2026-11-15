@@ -155,6 +155,26 @@ echo "@ip"
 defdev=$(ip route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')
 echo "default $defdev"
 ip -o addr show scope global 2>/dev/null | awk '$3=="inet" || $3=="inet6" {print $2, $4}'
+# How the computer is connected: kind of the default-route interface, and the
+# Wi-Fi network (SSID) of every associated wireless interface.
+echo "@link"
+kind() {
+  d="/sys/class/net/$1"; t=$(sed -n 's/^DEVTYPE=//p' "$d/uevent" 2>/dev/null)
+  if [ -d "$d/wireless" ] || [ "$t" = wlan ]; then echo wifi
+  elif [ "$t" = wwan ]; then echo mobile
+  elif [ "$t" = wireguard ] || [ "$(cat "$d/type" 2>/dev/null)" = 65534 ]; then echo vpn
+  elif [ "$(cat "$d/type" 2>/dev/null)" = 1 ]; then echo ethernet
+  else echo other; fi
+}
+[ -n "$defdev" ] && echo "default $defdev $(kind "$defdev")"
+for d in /sys/class/net/*; do
+  n=${d##*/}; [ -d "$d/wireless" ] || continue
+  ssid=""
+  if command -v iw >/dev/null 2>&1; then ssid=$(iw dev "$n" link 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p')
+  elif command -v iwgetid >/dev/null 2>&1; then ssid=$(iwgetid -r "$n" 2>/dev/null)
+  elif command -v nmcli >/dev/null 2>&1; then ssid=$(nmcli -t -f GENERAL.CONNECTION device show "$n" 2>/dev/null | cut -d: -f2-); fi
+  [ -n "$ssid" ] && echo "ssid $n $ssid"
+done
 if [ -n "$GLC_SLOW" ] && [ -n "$GLC_PUBLIC_IP" ]; then
   # Public address as seen from the Internet (asks api.ipify.org / icanhazip.com)
   pub() {
@@ -326,6 +346,10 @@ class StatusData:
     location: Location | None = None  # only read on slow polls
     addresses: dict[str, list[str]] = field(default_factory=dict)  # interface -> IPs
     primary_ip: str | None = None
+    link_type: str | None = None  # ethernet | wifi | mobile | vpn | other
+    link_interface: str | None = None
+    wifi: dict[str, str] = field(default_factory=dict)  # interface -> SSID
+    has_wifi: bool = False
     wwan_enabled: bool | None = None  # mobile broadband radio; None: no modem
     battery_level: int | None = None  # percent (mean when there are several)
     battery_status: str | None = None  # Charging, Discharging, Full...
@@ -428,12 +452,29 @@ def parse_status(text: str, units: list[str]) -> StatusData:
         location=parse_location(sec),
         **_parse_addresses(sec),
         **_parse_battery(sec),
+        **_parse_link(sec),
         wwan_enabled=(
             {"enabled": True, "disabled": False}.get(_first(sec, "wwan") or "")
             if "wwan" in sec
             else None
         ),
     )
+
+
+LINK_TYPES = ("ethernet", "wifi", "mobile", "vpn", "other")
+
+
+def _parse_link(sec: dict[str, list[str]]) -> dict:
+    out: dict = {"wifi": {}}
+    for line in sec.get("link", []):
+        parts = line.strip().split(" ", 2)
+        if parts[0] == "default" and len(parts) == 3:
+            out["link_interface"] = parts[1]
+            out["link_type"] = parts[2] if parts[2] in LINK_TYPES else "other"
+        elif parts[0] == "ssid" and len(parts) == 3:
+            out["wifi"][parts[1]] = parts[2]
+    out["has_wifi"] = bool(out["wifi"]) or out.get("link_type") == "wifi"
+    return out
 
 
 def _parse_battery(sec: dict[str, list[str]]) -> dict:

@@ -83,7 +83,8 @@
           "allow_hibernate": "السماح بالإسبات (القرص)",
           "allow_poweroff": "السماح بإيقاف التشغيل",
           "commands": "أوامر مخصصة",
-          "public_ip": "اكتشاف عنوان IP العام (يستعلم الحاسوب من api.ipify.org)"
+          "public_ip": "اكتشاف عنوان IP العام (يستعلم الحاسوب من api.ipify.org)",
+          "ip_location": "موقع تقريبي من عنوان IP العام عند عدم وجود GPS (يستعلم من ipwho.is)"
         },
         "data_description": {
           "commands": "أمر واحد في كل سطر: `الاسم = أمر shell`. يصبح كل أمر زرًّا ويمكن تشغيله بالإجراء run_command. استخدم `$SUDO` للتشغيل بصلاحيات root، مثل `Backup = $SUDO systemctl start backup.service`. المهلة: 5 دقائق."
@@ -231,6 +232,19 @@
       },
       "battery_level": {
         "name": "البطارية"
+      },
+      "connection": {
+        "name": "الاتصال",
+        "state": {
+          "ethernet": "إيثرنت",
+          "wifi": "Wi-Fi",
+          "mobile": "بيانات الجوال",
+          "vpn": "VPN",
+          "other": "أخرى"
+        }
+      },
+      "wifi_network": {
+        "name": "شبكة Wi-Fi"
       }
     },
     "update": {

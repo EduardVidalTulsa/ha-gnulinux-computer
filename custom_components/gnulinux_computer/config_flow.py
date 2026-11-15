@@ -37,6 +37,7 @@ from .const import (
     CONF_COMMANDS,
     CONF_HOST_KEY,
     CONF_HOSTNAME,
+    CONF_IP_LOCATION,
     CONF_KEY_PATH,
     CONF_MAC,
     CONF_MACHINE_ID,
@@ -512,6 +513,7 @@ class GLOptionsFlow(OptionsFlow):
                 ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
                 vol.Optional(CONF_NOTIFY, default=current.get(CONF_NOTIFY, True)): bool,
                 vol.Optional(CONF_PUBLIC_IP, default=current.get(CONF_PUBLIC_IP, True)): bool,
+                vol.Optional(CONF_IP_LOCATION, default=current.get(CONF_IP_LOCATION, False)): bool,
                 vol.Optional(
                     CONF_UPDATE_INTERVAL,
                     default=current.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
