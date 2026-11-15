@@ -5,8 +5,10 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 import re
+from urllib.parse import urlsplit
 
 import aiohttp
 
@@ -46,6 +48,20 @@ def parse_reference(ref: str) -> tuple[str, str, str] | None:
     return registry, repo, tag
 
 
+def _safe_realm(realm: str) -> bool:
+    """The token URL comes from the registry's answer: only follow it to a
+    public https host, so a hostile registry cannot make Home Assistant query
+    services of the local network."""
+    url = urlsplit(realm)
+    host = url.hostname or ""
+    if url.scheme != "https" or not host or host == "localhost" or "." not in host:
+        return False
+    try:
+        return ipaddress.ip_address(host).is_global
+    except ValueError:
+        return not host.endswith((".local", ".lan", ".internal", ".localhost", ".home.arpa"))
+
+
 class RegistryClient:
     """Minimal OCI distribution client with anonymous token auth."""
 
@@ -57,7 +73,7 @@ class RegistryClient:
     async def _token(self, header: str) -> str | None:
         params = dict(_AUTH_RE.findall(header))
         realm = params.pop("realm", None)
-        if not realm:
+        if not realm or not _safe_realm(realm):
             return None
         async with self._session.get(realm, params=params, timeout=TIMEOUT) as resp:
             if resp.status != 200:

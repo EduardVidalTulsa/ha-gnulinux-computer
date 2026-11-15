@@ -1,0 +1,378 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GNU+Linux কম্পিউটার",
+        "description": "কম্পিউটারের সঙ্গে SSH সংযোগ। ব্যবহারকারীকে sudo (wheel/sudo গ্রুপ) বা doas দিয়ে root হতে পারতে হবে।",
+        "data": {
+          "host": "হোস্ট",
+          "port": "পোর্ট",
+          "username": "ব্যবহারকারীর নাম",
+          "auth_method": "প্রমাণীকরণ"
+        }
+      },
+      "password": {
+        "title": "পাসওয়ার্ড",
+        "description": "{user}@{host}-এর পাসওয়ার্ড। sudo-র জন্যও ব্যবহৃত হয়।",
+        "data": {
+          "password": "পাসওয়ার্ড"
+        }
+      },
+      "key_file": {
+        "title": "SSH কী",
+        "description": "Home Assistant-এর ভেতরে প্রাইভেট কী-র পাথ (যেমন /config/.ssh/...)। sudo পাসওয়ার্ড কেবল তখনই লাগবে যখন sudo তা চায়।",
+        "data": {
+          "key_path": "প্রাইভেট কী",
+          "sudo_password": "sudo পাসওয়ার্ড (ঐচ্ছিক)"
+        }
+      },
+      "generate_key": {
+        "title": "শেয়ার্ড SSH কী",
+        "description": "এই পাবলিক কী-টি **{host}**-এ **{user}**-এর `~/.ssh/authorized_keys`-এ যোগ করুন:\n\n`{pubkey}`\n\nউদাহরণস্বরূপ:\n\n`{command}`\n\nতারপর সাবমিট চাপুন।",
+        "data": {
+          "sudo_password": "sudo পাসওয়ার্ড (ঐচ্ছিক)"
+        }
+      },
+      "power": {
+        "title": "পাওয়ার অ্যাকশন",
+        "description": "Home Assistant এই কম্পিউটারে কোন কোন কাজ চালাতে পারবে? সার্ভারের ক্ষেত্রে সবকিছু বন্ধ রাখুন।\n\nশনাক্ত হওয়া স্লিপ অবস্থা: {detected}।",
+        "data": {
+          "allow_suspend": "সাসপেন্ডের অনুমতি দিন (RAM)",
+          "allow_hibernate": "হাইবারনেটের অনুমতি দিন (ডিস্ক)",
+          "allow_poweroff": "বন্ধ করার অনুমতি দিন"
+        }
+      },
+      "reauth_confirm": {
+        "title": "প্রমাণীকরণ ব্যর্থ হয়েছে",
+        "description": "**{host}** **{user}**-এর ক্রেডেনশিয়াল প্রত্যাখ্যান করেছে (পাসওয়ার্ড বদলেছে, কী মুছে ফেলা হয়েছে, অথবা হোস্ট কী বদলেছে)। Home Assistant সংযোগ করা বন্ধ করেছে।\n\nনতুন পাসওয়ার্ড বা কোনো কী-র পাথ দিন, অথবা Home Assistant-এর শেয়ার্ড কী ব্যবহার করতে *জেনারেট* বেছে নিন — আগে সেটি `~/.ssh/authorized_keys`-এ যোগ করুন:\n\n`{pubkey}`\n\nএখনকার হোস্ট কী: `{fingerprint}` ({host_key_status}; আগে: `{old_fingerprint}`)। **⚠ ≠ মানে হোস্ট কী বদলে গেছে**: কারণ জানা থাকলে তবেই সাবমিট করুন (যেমন কম্পিউটার নতুন করে ইনস্টল করা হয়েছে)।",
+        "data": {
+          "auth_method": "প্রমাণীকরণ",
+          "password": "পাসওয়ার্ড",
+          "key_path": "প্রাইভেট কী (পাথ)",
+          "sudo_password": "sudo পাসওয়ার্ড (শুধু বদলানোর জন্য)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "সংযোগ করা যাচ্ছে না",
+      "invalid_auth": "অবৈধ প্রমাণীকরণ",
+      "invalid_key": "প্রাইভেট কী পড়া যাচ্ছে না",
+      "no_sudo": "ব্যবহারকারী root হতে পারছে না: তাকে wheel/sudo গ্রুপে যোগ করুন, sudo পাসওয়ার্ড দিন, অথবা doas.conf-এ অনুমতি দিন (permit nopass)"
+    },
+    "abort": {
+      "already_configured": "এই কম্পিউটারটি আগে থেকেই কনফিগার করা আছে; সংযোগের তথ্য হালনাগাদ করা হয়েছে",
+      "reauth_successful": "ক্রেডেনশিয়াল হালনাগাদ হয়েছে",
+      "wrong_computer": "এটি অন্য একটি কম্পিউটার (machine-id মিলছে না)"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "বিকল্প",
+        "data": {
+          "units": "নজরদারির জন্য সার্ভিস",
+          "notify": "নতুন আপডেটের বিজ্ঞপ্তি দিন",
+          "update_interval": "আপডেট পরীক্ষার বিরতি",
+          "status_interval": "অবস্থা পরীক্ষার বিরতি",
+          "mac": "Wake-on-LAN MAC",
+          "broadcast_address": "WoL ব্রডকাস্ট ঠিকানা",
+          "wol_method": "Wake-on-LAN পদ্ধতি",
+          "allow_suspend": "সাসপেন্ডের অনুমতি দিন (RAM)",
+          "allow_hibernate": "হাইবারনেটের অনুমতি দিন (ডিস্ক)",
+          "allow_poweroff": "বন্ধ করার অনুমতি দিন",
+          "commands": "কাস্টম কমান্ড",
+          "public_ip": "পাবলিক IP শনাক্ত করুন (কম্পিউটার api.ipify.org-কে জিজ্ঞেস করে)"
+        },
+        "data_description": {
+          "commands": "প্রতি লাইনে একটি: `নাম = shell কমান্ড`। প্রতিটি একটি বোতাম হয়ে যায় এবং run_command অ্যাকশন দিয়ে চালানো যায়। root হিসেবে চালাতে `$SUDO` ব্যবহার করুন, যেমন `Backup = $SUDO systemctl start backup.service`। সময়সীমা: ৫ মিনিট।"
+        }
+      },
+      "wol_computer": {
+        "title": "অন্য কম্পিউটারের মাধ্যমে Wake-on-LAN",
+        "description": "এমন একটি কম্পিউটার বেছে নিন যা সবসময় চালু থাকে এবং এটির সঙ্গে একই নেটওয়ার্কে আছে। সেটি ম্যাজিক প্যাকেট পাঠাবে (`wakeonlan` বা `python3` লাগবে)।",
+        "data": {
+          "wol_relay_entry": "কম্পিউটার"
+        }
+      },
+      "wol_mikrotik": {
+        "title": "MikroTik রাউটারের মাধ্যমে Wake-on-LAN",
+        "description": "এই কম্পিউটারের নেটওয়ার্কের রাউটার `/tool wol` দিয়ে ম্যাজিক প্যাকেট পাঠায়।\n\nরাউটারে একটি সীমিত ব্যবহারকারী তৈরি করুন (RouterOS টার্মিনাল):\n\n```\n{command}\n```\n\nদেখানো কী-টি নিচের পাথের কী (ডিফল্টভাবে Home Assistant-এর শেয়ার্ড কী)। শুধু কী ব্যবহার করতে পাসওয়ার্ড ফাঁকা রাখুন।",
+        "data": {
+          "wol_router_host": "রাউটারের ঠিকানা",
+          "wol_router_port": "SSH পোর্ট",
+          "wol_router_user": "ব্যবহারকারী",
+          "wol_router_key": "প্রাইভেট কী (পাথ)",
+          "wol_router_password": "পাসওয়ার্ড (ঐচ্ছিক)",
+          "wol_router_interface": "ইন্টারফেস (যেমন bridge)"
+        }
+      },
+      "wol_ha_mikrotik": {
+        "title": "Home Assistant-এর MikroTik-এর মাধ্যমে Wake-on-LAN",
+        "description": "MikroTik ইন্টিগ্রেশনের সংযোগ ব্যবহার করে (`/tool/wol`)। রাউটারের API ব্যবহারকারীর **test** পলিসি দরকার।",
+        "data": {
+          "wol_ha_mikrotik_entry": "রাউটার",
+          "wol_router_interface": "ইন্টারফেস (যেমন bridge)"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "অবৈধ MAC",
+      "cannot_connect": "সংযোগ করা যাচ্ছে না",
+      "invalid_auth": "অবৈধ প্রমাণীকরণ",
+      "invalid_key": "প্রাইভেট কী পড়া যাচ্ছে না",
+      "not_routeros": "সংযুক্ত হয়েছে, কিন্তু এটি RouterOS বলে মনে হচ্ছে না",
+      "invalid_commands": "অবৈধ লাইন: `নাম = কমান্ড` লিখুন (নাম: অক্ষর, সংখ্যা, স্পেস, সর্বোচ্চ ৪০ অক্ষর, পুনরাবৃত্তি নয়)",
+      "invalid_unit": "অবৈধ সার্ভিসের নাম"
+    },
+    "abort": {
+      "no_other_computer": "রিলে হিসেবে কাজ করার মতো অন্য কোনো কম্পিউটার কনফিগার করা নেই",
+      "no_mikrotik": "আগে MikroTik ইন্টিগ্রেশন দিয়ে রাউটারটি যোগ করুন"
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "password": "ব্যবহারকারীর নাম ও পাসওয়ার্ড",
+        "key_file": "বিদ্যমান SSH কী",
+        "generate_key": "Home Assistant-এর শেয়ার্ড SSH কী (না থাকলে তৈরি হয়)"
+      }
+    },
+    "wol_method": {
+      "options": {
+        "local": "Home Assistant থেকে ব্রডকাস্ট (একই নেটওয়ার্ক)",
+        "computer": "এই ইন্টিগ্রেশনের অন্য কম্পিউটারের মাধ্যমে",
+        "ha_mikrotik": "Home Assistant-এ যোগ করা MikroTik রাউটারের মাধ্যমে",
+        "mikrotik": "MikroTik রাউটারের মাধ্যমে (SSH)"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "অনলাইন"
+      },
+      "unit": {
+        "name": "সার্ভিস {unit}"
+      },
+      "reboot_required": {
+        "name": "রিবুট প্রয়োজন"
+      }
+    },
+    "sensor": {
+      "failed_units": {
+        "name": "ব্যর্থ সার্ভিস"
+      },
+      "system_state": {
+        "name": "সিস্টেমের অবস্থা"
+      },
+      "boot_time": {
+        "name": "শেষ বুট"
+      },
+      "load_1m": {
+        "name": "লোড (১ মিনিট)"
+      },
+      "memory_used": {
+        "name": "ব্যবহৃত মেমরি"
+      },
+      "updates": {
+        "name": "অপেক্ষমাণ আপডেট"
+      },
+      "last_check": {
+        "name": "শেষ আপডেট পরীক্ষা"
+      },
+      "volume": {
+        "name": "ভলিউম {mount}"
+      },
+      "services_running": {
+        "name": "চলমান সার্ভিস"
+      },
+      "services_enabled": {
+        "name": "সক্রিয় করা সার্ভিস"
+      },
+      "services_disabled": {
+        "name": "নিষ্ক্রিয় করা সার্ভিস"
+      },
+      "power_total": {
+        "name": "পাওয়ার (আনুমানিক)"
+      },
+      "power_cpu": {
+        "name": "CPU পাওয়ার"
+      },
+      "power_platform": {
+        "name": "প্ল্যাটফর্ম পাওয়ার (psys)"
+      },
+      "power_gpu": {
+        "name": "GPU পাওয়ার"
+      },
+      "power_battery": {
+        "name": "ব্যাটারি পাওয়ার"
+      },
+      "power_pmic": {
+        "name": "PMIC পাওয়ার"
+      },
+      "last_update": {
+        "name": "শেষ আপডেট",
+        "state": {
+          "running": "চলছে",
+          "success": "সফল",
+          "failed": "ব্যর্থ"
+        }
+      },
+      "ip_address": {
+        "name": "IP ঠিকানা"
+      },
+      "public_ip": {
+        "name": "পাবলিক IP"
+      }
+    },
+    "update": {
+      "pacman": {
+        "name": "সিস্টেম প্যাকেজ (pacman)"
+      },
+      "aur": {
+        "name": "AUR"
+      },
+      "dnf": {
+        "name": "সিস্টেম প্যাকেজ (DNF)"
+      },
+      "zypper": {
+        "name": "সিস্টেম প্যাকেজ (zypper)"
+      },
+      "apt": {
+        "name": "সিস্টেম প্যাকেজ (APT)"
+      },
+      "flatpak": {
+        "name": "Flatpak"
+      },
+      "snap": {
+        "name": "Snap"
+      },
+      "firmware": {
+        "name": "ফার্মওয়্যার (fwupd)"
+      },
+      "container": {
+        "name": "কন্টেইনার {name}"
+      },
+      "apk": {
+        "name": "সিস্টেম প্যাকেজ (apk)"
+      },
+      "ostree": {
+        "name": "সিস্টেম ইমেজ (rpm-ostree / bootc)"
+      }
+    },
+    "select": {
+      "power": {
+        "name": "পাওয়ার",
+        "state": {
+          "on": "চালু",
+          "suspend": "সাসপেন্ড (RAM)",
+          "hibernate": "হাইবারনেট (ডিস্ক)",
+          "poweroff": "বন্ধ",
+          "reboot": "রিবুট"
+        }
+      },
+      "esim_profile": {
+        "name": "eSIM প্রোফাইল"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "রিবুট"
+      },
+      "check_updates": {
+        "name": "আপডেট পরীক্ষা করুন"
+      },
+      "screenshot": {
+        "name": "স্ক্রিনশট নিন"
+      },
+      "update_all": {
+        "name": "সব আপডেট করুন"
+      },
+      "command": {
+        "name": "{name}"
+      }
+    },
+    "image": {
+      "screenshot": {
+        "name": "স্ক্রিনশট"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "অবস্থান"
+      }
+    }
+  },
+  "services": {
+    "service_control": {
+      "name": "সার্ভিস নিয়ন্ত্রণ",
+      "description": "কম্পিউটারে কোনো সার্ভিস চালু, বন্ধ, পুনরায় চালু, সক্রিয় বা নিষ্ক্রিয় করে।",
+      "fields": {
+        "config_entry_id": {
+          "name": "কম্পিউটার",
+          "description": "যে কম্পিউটারে কাজটি হবে।"
+        },
+        "unit": {
+          "name": "সার্ভিস",
+          "description": "সার্ভিসের নাম (যেমন sshd.service)।"
+        },
+        "command": {
+          "name": "কমান্ড",
+          "description": "সার্ভিসটি নিয়ে কী করতে হবে।"
+        }
+      }
+    },
+    "take_screenshot": {
+      "name": "স্ক্রিনশট নিন",
+      "description": "সক্রিয় গ্রাফিক্যাল সেশনের স্ক্রিনশট নেয়।",
+      "fields": {
+        "config_entry_id": {
+          "name": "কম্পিউটার",
+          "description": "যে কম্পিউটারের স্ক্রিনশট নিতে হবে।"
+        }
+      }
+    },
+    "update_log": {
+      "name": "আপডেট লগ",
+      "description": "কম্পিউটারে চলা শেষ আপডেটের আউটপুট ফেরত দেয়।",
+      "fields": {
+        "config_entry_id": {
+          "name": "কম্পিউটার",
+          "description": "যে কম্পিউটারের লগ পড়তে হবে।"
+        },
+        "lines": {
+          "name": "লাইন",
+          "description": "আউটপুটের শেষ থেকে লাইনের সংখ্যা।"
+        }
+      }
+    },
+    "run_command": {
+      "name": "কাস্টম কমান্ড চালান",
+      "description": "কম্পিউটারের বিকল্পে নির্ধারিত কাস্টম কমান্ডগুলোর একটি চালায় এবং তার আউটপুট ফেরত দেয়। শুধু অ্যাডমিনদের জন্য।",
+      "fields": {
+        "config_entry_id": {
+          "name": "কম্পিউটার",
+          "description": "যে কম্পিউটারে চালাতে হবে।"
+        },
+        "command": {
+          "name": "কমান্ড",
+          "description": "কমান্ডের নাম, বিকল্পে যেভাবে লেখা আছে।"
+        }
+      }
+    },
+    "use_shared_key": {
+      "name": "শেয়ার্ড SSH কী ব্যবহার করুন",
+      "description": "কম্পিউটারে তার বর্তমান ক্রেডেনশিয়াল দিয়ে Home Assistant-এর শেয়ার্ড কী (/config/.ssh/gnulinux_computer) অনুমোদন করে, সেটি কাজ করছে কি না যাচাই করে এবং সেটিতে বদলে নেয়। কম্পিউটার না দিলে সবগুলোর জন্য করে। শুধু অ্যাডমিনদের জন্য।",
+      "fields": {
+        "config_entry_id": {
+          "name": "কম্পিউটার",
+          "description": "সব কম্পিউটারের জন্য ফাঁকা রাখুন।"
+        },
+        "remove_old_key": {
+          "name": "পুরোনো কী মুছুন",
+          "description": "এই ইন্টিগ্রেশন আগে ওই কম্পিউটারের জন্য আলাদা যে কী তৈরি করেছিল, সেটি কম্পিউটার থেকে মুছে দেয়।"
+        }
+      }
+    }
+  }
+}

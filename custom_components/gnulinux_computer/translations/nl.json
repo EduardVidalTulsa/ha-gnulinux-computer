@@ -1,0 +1,378 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GNU+Linux-computer",
+        "description": "SSH-verbinding met de computer. De gebruiker moet root kunnen worden met sudo (groep wheel/sudo) of doas.",
+        "data": {
+          "host": "Host",
+          "port": "Poort",
+          "username": "Gebruikersnaam",
+          "auth_method": "Authenticatie"
+        }
+      },
+      "password": {
+        "title": "Wachtwoord",
+        "description": "Wachtwoord van {user}@{host}. Wordt ook voor sudo gebruikt.",
+        "data": {
+          "password": "Wachtwoord"
+        }
+      },
+      "key_file": {
+        "title": "SSH-sleutel",
+        "description": "Pad van de privésleutel binnen Home Assistant (bijv. /config/.ssh/...). Het sudo-wachtwoord is alleen nodig als sudo erom vraagt.",
+        "data": {
+          "key_path": "Privésleutel",
+          "sudo_password": "Sudo-wachtwoord (optioneel)"
+        }
+      },
+      "generate_key": {
+        "title": "Gedeelde SSH-sleutel",
+        "description": "Voeg deze publieke sleutel toe aan `~/.ssh/authorized_keys` van **{user}** op **{host}**:\n\n`{pubkey}`\n\nBijvoorbeeld:\n\n`{command}`\n\nKlik daarna op Verzenden.",
+        "data": {
+          "sudo_password": "Sudo-wachtwoord (optioneel)"
+        }
+      },
+      "power": {
+        "title": "Energieacties",
+        "description": "Welke acties mag Home Assistant op deze computer uitvoeren? Laat alles uit voor servers.\n\nGedetecteerde slaapstanden: {detected}.",
+        "data": {
+          "allow_suspend": "Slaapstand toestaan (RAM)",
+          "allow_hibernate": "Sluimerstand toestaan (schijf)",
+          "allow_poweroff": "Uitschakelen toestaan"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Authenticatie mislukt",
+        "description": "**{host}** heeft de inloggegevens van **{user}** geweigerd (wachtwoord gewijzigd, sleutel verwijderd of hostsleutel gewijzigd). Home Assistant maakt geen verbinding meer.\n\nVoer het nieuwe wachtwoord of het pad van een sleutel in, of kies *Genereren* om de gedeelde sleutel van Home Assistant te gebruiken — voeg die eerst toe aan `~/.ssh/authorized_keys`:\n\n`{pubkey}`\n\nHostsleutel nu: `{fingerprint}` ({host_key_status}; eerder: `{old_fingerprint}`). **⚠ ≠ betekent dat de hostsleutel is gewijzigd**: verzend alleen als je weet waarom (bijv. de computer is opnieuw geïnstalleerd).",
+        "data": {
+          "auth_method": "Authenticatie",
+          "password": "Wachtwoord",
+          "key_path": "Privésleutel (pad)",
+          "sudo_password": "Sudo-wachtwoord (alleen om het te wijzigen)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken",
+      "invalid_auth": "Ongeldige authenticatie",
+      "invalid_key": "Kan de privésleutel niet lezen",
+      "no_sudo": "De gebruiker kan geen root worden: voeg hem toe aan de groep wheel/sudo, geef het sudo-wachtwoord op of sta het toe in doas.conf (permit nopass)"
+    },
+    "abort": {
+      "already_configured": "Deze computer is al geconfigureerd; de verbindingsgegevens zijn bijgewerkt",
+      "reauth_successful": "Inloggegevens bijgewerkt",
+      "wrong_computer": "Dat is een andere computer (de machine-id komt niet overeen)"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opties",
+        "data": {
+          "units": "Te bewaken services",
+          "notify": "Melden bij nieuwe updates",
+          "update_interval": "Interval voor updatecontrole",
+          "status_interval": "Statusinterval",
+          "mac": "MAC voor Wake-on-LAN",
+          "broadcast_address": "WoL-broadcastadres",
+          "wol_method": "Wake-on-LAN-methode",
+          "allow_suspend": "Slaapstand toestaan (RAM)",
+          "allow_hibernate": "Sluimerstand toestaan (schijf)",
+          "allow_poweroff": "Uitschakelen toestaan",
+          "commands": "Aangepaste opdrachten",
+          "public_ip": "Het publieke IP-adres bepalen (de computer vraagt het aan api.ipify.org)"
+        },
+        "data_description": {
+          "commands": "Eén per regel: `Naam = shell-opdracht`. Elke opdracht wordt een knop en kan worden uitgevoerd met de actie run_command. Gebruik `$SUDO` om als root uit te voeren, bijv. `Backup = $SUDO systemctl start backup.service`. Maximale duur: 5 minuten."
+        }
+      },
+      "wol_computer": {
+        "title": "Wake-on-LAN via een andere computer",
+        "description": "Kies een computer die altijd aan staat en in hetzelfde netwerk zit als deze. Die verstuurt het magic packet (vereist `wakeonlan` of `python3`).",
+        "data": {
+          "wol_relay_entry": "Computer"
+        }
+      },
+      "wol_mikrotik": {
+        "title": "Wake-on-LAN via een MikroTik-router",
+        "description": "De router van het netwerk van deze computer verstuurt het magic packet met `/tool wol`.\n\nMaak een beperkte gebruiker aan op de router (RouterOS-terminal):\n\n```\n{command}\n```\n\nDe getoonde sleutel is die van het pad hieronder (standaard de gedeelde sleutel van Home Assistant). Laat het wachtwoord leeg om alleen de sleutel te gebruiken.",
+        "data": {
+          "wol_router_host": "Routeradres",
+          "wol_router_port": "SSH-poort",
+          "wol_router_user": "Gebruiker",
+          "wol_router_key": "Privésleutel (pad)",
+          "wol_router_password": "Wachtwoord (optioneel)",
+          "wol_router_interface": "Interface (bijv. bridge)"
+        }
+      },
+      "wol_ha_mikrotik": {
+        "title": "Wake-on-LAN via een MikroTik van Home Assistant",
+        "description": "Gebruikt de verbinding van de MikroTik-integratie (`/tool/wol`). De API-gebruiker van de router heeft het beleid **test** nodig.",
+        "data": {
+          "wol_ha_mikrotik_entry": "Router",
+          "wol_router_interface": "Interface (bijv. bridge)"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "Ongeldig MAC-adres",
+      "cannot_connect": "Kan geen verbinding maken",
+      "invalid_auth": "Ongeldige authenticatie",
+      "invalid_key": "Kan de privésleutel niet lezen",
+      "not_routeros": "Verbonden, maar het lijkt geen RouterOS te zijn",
+      "invalid_commands": "Ongeldige regel: gebruik `Naam = opdracht` (naam: letters, cijfers, spaties, maximaal 40 tekens, niet dubbel)",
+      "invalid_unit": "Ongeldige servicenaam"
+    },
+    "abort": {
+      "no_other_computer": "Er is geen andere computer geconfigureerd die als tussenstation kan dienen",
+      "no_mikrotik": "Voeg de router eerst toe met de MikroTik-integratie"
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "password": "Gebruikersnaam en wachtwoord",
+        "key_file": "Bestaande SSH-sleutel",
+        "generate_key": "Gedeelde SSH-sleutel van Home Assistant (wordt aangemaakt als die ontbreekt)"
+      }
+    },
+    "wol_method": {
+      "options": {
+        "local": "Broadcast vanuit Home Assistant (zelfde netwerk)",
+        "computer": "Via een andere computer van deze integratie",
+        "ha_mikrotik": "Via een MikroTik-router die aan Home Assistant is toegevoegd",
+        "mikrotik": "Via een MikroTik-router (SSH)"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "Online"
+      },
+      "unit": {
+        "name": "Service {unit}"
+      },
+      "reboot_required": {
+        "name": "Herstart vereist"
+      }
+    },
+    "sensor": {
+      "failed_units": {
+        "name": "Mislukte services"
+      },
+      "system_state": {
+        "name": "Systeemstatus"
+      },
+      "boot_time": {
+        "name": "Laatste opstart"
+      },
+      "load_1m": {
+        "name": "Belasting (1 min)"
+      },
+      "memory_used": {
+        "name": "Geheugengebruik"
+      },
+      "updates": {
+        "name": "Beschikbare updates"
+      },
+      "last_check": {
+        "name": "Laatste updatecontrole"
+      },
+      "volume": {
+        "name": "Volume {mount}"
+      },
+      "services_running": {
+        "name": "Actieve services"
+      },
+      "services_enabled": {
+        "name": "Ingeschakelde services"
+      },
+      "services_disabled": {
+        "name": "Uitgeschakelde services"
+      },
+      "power_total": {
+        "name": "Vermogen (geschat)"
+      },
+      "power_cpu": {
+        "name": "CPU-vermogen"
+      },
+      "power_platform": {
+        "name": "Platformvermogen (psys)"
+      },
+      "power_gpu": {
+        "name": "GPU-vermogen"
+      },
+      "power_battery": {
+        "name": "Accuvermogen"
+      },
+      "power_pmic": {
+        "name": "PMIC-vermogen"
+      },
+      "last_update": {
+        "name": "Laatste update",
+        "state": {
+          "running": "Bezig",
+          "success": "Geslaagd",
+          "failed": "Mislukt"
+        }
+      },
+      "ip_address": {
+        "name": "IP-adres"
+      },
+      "public_ip": {
+        "name": "Publiek IP-adres"
+      }
+    },
+    "update": {
+      "pacman": {
+        "name": "Systeempakketten (pacman)"
+      },
+      "aur": {
+        "name": "AUR"
+      },
+      "dnf": {
+        "name": "Systeempakketten (DNF)"
+      },
+      "zypper": {
+        "name": "Systeempakketten (zypper)"
+      },
+      "apt": {
+        "name": "Systeempakketten (APT)"
+      },
+      "flatpak": {
+        "name": "Flatpak"
+      },
+      "snap": {
+        "name": "Snap"
+      },
+      "firmware": {
+        "name": "Firmware (fwupd)"
+      },
+      "container": {
+        "name": "Container {name}"
+      },
+      "apk": {
+        "name": "Systeempakketten (apk)"
+      },
+      "ostree": {
+        "name": "Systeemimage (rpm-ostree / bootc)"
+      }
+    },
+    "select": {
+      "power": {
+        "name": "Energie",
+        "state": {
+          "on": "Aan",
+          "suspend": "Slaapstand (RAM)",
+          "hibernate": "Sluimerstand (schijf)",
+          "poweroff": "Uit",
+          "reboot": "Herstarten"
+        }
+      },
+      "esim_profile": {
+        "name": "eSIM-profiel"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Herstarten"
+      },
+      "check_updates": {
+        "name": "Controleren op updates"
+      },
+      "screenshot": {
+        "name": "Schermafbeelding maken"
+      },
+      "update_all": {
+        "name": "Alles bijwerken"
+      },
+      "command": {
+        "name": "{name}"
+      }
+    },
+    "image": {
+      "screenshot": {
+        "name": "Schermafbeelding"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Locatie"
+      }
+    }
+  },
+  "services": {
+    "service_control": {
+      "name": "Servicebeheer",
+      "description": "Start, stopt, herstart, schakelt een service op de computer in of uit.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Computer",
+          "description": "Computer waarop de actie wordt uitgevoerd."
+        },
+        "unit": {
+          "name": "Service",
+          "description": "Naam van de service (bijv. sshd.service)."
+        },
+        "command": {
+          "name": "Opdracht",
+          "description": "Wat er met de service moet gebeuren."
+        }
+      }
+    },
+    "take_screenshot": {
+      "name": "Schermafbeelding maken",
+      "description": "Maakt een schermafbeelding van de actieve grafische sessie.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Computer",
+          "description": "Computer om vast te leggen."
+        }
+      }
+    },
+    "update_log": {
+      "name": "Updatelogboek",
+      "description": "Geeft de uitvoer van de laatste update die op de computer is uitgevoerd.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Computer",
+          "description": "Computer waarvan het logboek wordt gelezen."
+        },
+        "lines": {
+          "name": "Regels",
+          "description": "Aantal regels vanaf het einde van de uitvoer."
+        }
+      }
+    },
+    "run_command": {
+      "name": "Aangepaste opdracht uitvoeren",
+      "description": "Voert een van de aangepaste opdrachten uit die in de opties van de computer zijn gedefinieerd en geeft de uitvoer terug. Alleen beheerders.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Computer",
+          "description": "Computer waarop de opdracht wordt uitgevoerd."
+        },
+        "command": {
+          "name": "Opdracht",
+          "description": "Naam van de opdracht, zoals geschreven in de opties."
+        }
+      }
+    },
+    "use_shared_key": {
+      "name": "De gedeelde SSH-sleutel gebruiken",
+      "description": "Autoriseert de gedeelde sleutel van Home Assistant (/config/.ssh/gnulinux_computer) op de computer met de huidige inloggegevens, controleert of die werkt en schakelt erop over. Zonder computer gebeurt dit voor alle computers. Alleen beheerders.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Computer",
+          "description": "Laat leeg voor alle computers."
+        },
+        "remove_old_key": {
+          "name": "De oude sleutel verwijderen",
+          "description": "Verwijdert de sleutel per computer die deze integratie eerder had gegenereerd van de computer."
+        }
+      }
+    }
+  }
+}

@@ -15,21 +15,26 @@ from typing import TYPE_CHECKING
 
 from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .client import CannotConnect, CommandError, LinuxClient
+from .client import AuthFailed, CannotConnect, CommandError, LinuxClient
 from .const import (
+    COMMAND_OUTPUT_MAX,
+    COMMAND_TIMEOUT,
+    CONF_COMMANDS,
     CONF_NOTIFY,
+    CONF_PUBLIC_IP,
     CONF_STATUS_INTERVAL,
     CONF_UNITS,
     CONF_UPDATE_INTERVAL,
     DEFAULT_STATUS_INTERVAL,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
+    EVENT_COMMAND_FINISHED,
     EVENT_UPDATES_AVAILABLE,
     POWER_ON,
     allowed_power_options,
@@ -46,6 +51,12 @@ from .remote import (
     parse_job_status,
     CONTAINERS_SCRIPT,
     DETECT_SCRIPT,
+    ESIM_LIST_SCRIPT,
+    EsimProfile,
+    Location,
+    esim_enable_script,
+    lpac_ok,
+    parse_esim_profiles,
     SCREENSHOT_SCRIPT,
     BackendResult,
     Container,
@@ -72,6 +83,8 @@ BACKEND_LABELS = {
     "dnf": "DNF",
     "zypper": "zypper",
     "apt": "APT",
+    "apk": "apk",
+    "ostree": "rpm-ostree / bootc",
     "flatpak": "Flatpak",
     "snap": "Snap",
     "firmware": "Firmware (fwupd)",
@@ -82,7 +95,7 @@ JOB_POLL = 15  # seconds between checks of a running install
 JOB_TIMEOUT = 4 * 3600
 
 # System packages first, then the AUR (may depend on them), then the rest.
-INSTALL_ORDER = ("pacman", "dnf", "zypper", "apt", "aur", "flatpak", "snap")
+INSTALL_ORDER = ("pacman", "dnf", "ostree", "zypper", "apt", "apk", "aur", "flatpak", "snap")
 
 
 @dataclass
@@ -93,6 +106,7 @@ class UpdatesData:
     tools: dict[str, str] = field(default_factory=dict)
     containers: dict[str, Container] = field(default_factory=dict)
     checked_at: datetime | None = None
+    esim: list[EsimProfile] | None = None  # None: no eSIM (or no lpac)
 
     @property
     def total(self) -> int:
@@ -134,6 +148,9 @@ class StatusCoordinator(DataUpdateCoordinator[StatusData]):
         self.units: list[str] = list(entry.options.get(CONF_UNITS, []))
         self.rapl = RaplTracker()
         self.power = PowerValues()
+        self.location: Location | None = None
+        self.public_ip: dict[str, str] = {}
+        self._public_ip_enabled: bool = entry.options.get(CONF_PUBLIC_IP, True)
         self._last_slow: float | None = None
 
     async def _async_update_data(self) -> StatusData:
@@ -144,13 +161,23 @@ class StatusCoordinator(DataUpdateCoordinator[StatusData]):
             or self.rapl.wants_quick_read
         )
         try:
-            res = await self.client.run(status_script(self.units, slow=slow), timeout=30)
+            res = await self.client.run(
+                status_script(self.units, slow=slow, public_ip=self._public_ip_enabled),
+                timeout=45,
+            )
+        except AuthFailed as err:
+            # Rejected credentials: stop polling and ask the user (reauth flow).
+            raise ConfigEntryAuthFailed(str(err)) from err
         except (CannotConnect, CommandError) as err:
             raise UpdateFailed(str(err)) from err
         if slow:
             self._last_slow = now
         data = parse_status(str(res.stdout), self.units)
         self.power = compute_power(data.sections, self.rapl, self.power)
+        if data.location is not None:
+            self.location = data.location  # fast polls do not read the position
+        if data.public_ip is not None:
+            self.public_ip = data.public_ip
         return data
 
     @property
@@ -194,6 +221,8 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
         if self._known is None:
             stored = await self._store.async_load() or {}
             self._known = set(stored.get("known", []))
+        if self.client.auth_error:
+            raise ConfigEntryAuthFailed(self.client.auth_error)
         if not self.status.online:
             # Machine asleep or off: keep the last known result.
             self._was_offline = True
@@ -204,6 +233,8 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
         try:
             data = await self._check()
             await self._refresh_last_job()
+        except AuthFailed as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
         except CannotConnect as err:
             if self.data is not None:
                 return self.data
@@ -254,7 +285,37 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
                 else:
                     c.remote_digest = found
         data.containers = {c.key: c for c in containers}
+        data.esim = await self._esim_profiles()
         return data
+
+    async def _esim_profiles(self) -> list[EsimProfile] | None:
+        try:
+            res = await self.client.run(ESIM_LIST_SCRIPT, timeout=150)
+        except CommandError:
+            return self.data.esim if self.data else None
+        return parse_esim_profiles(str(res.stdout))
+
+    async def async_esim_enable(self, iccid: str) -> None:
+        """Make another eSIM profile the active one."""
+        try:
+            res = await self.client.run(esim_enable_script(iccid), timeout=150)
+        except ValueError as err:
+            raise HomeAssistantError(str(err)) from err
+        except (CannotConnect, CommandError) as err:
+            raise HomeAssistantError(f"{self.config_entry.title}: {err}") from err
+        ok, message = lpac_ok(str(res.stdout))
+        if not ok:
+            raise HomeAssistantError(
+                f"No s'ha pogut activar el perfil eSIM: {message or res.stderr.strip()}"
+            )
+        if self.data is not None:
+            try:
+                self.data.esim = await self._esim_profiles()
+            except CannotConnect:
+                # Expected when the computer is reached through that modem.
+                for profile in self.data.esim or []:
+                    profile.enabled = profile.iccid == iccid
+            self.async_update_listeners()
 
     async def _notify(self, data: UpdatesData) -> None:
         keys = data.keys()
@@ -509,6 +570,42 @@ class Runtime:
     screenshot_at: datetime | None = None
     screenshot_listeners: list[Callable[[], None]] = field(default_factory=list)
     last_power_target: str | None = None
+    command_results: dict[str, dict] = field(default_factory=dict)
+    command_listeners: list[Callable[[], None]] = field(default_factory=list)
+
+    async def async_command(self, name: str, entry: ConfigEntry) -> dict:
+        """Run one of the custom commands defined in the options of this computer."""
+        script = (entry.options.get(CONF_COMMANDS) or {}).get(name)
+        if not script:
+            raise HomeAssistantError(
+                f"L'ordre '{name}' no està definida a {entry.title} (opcions de la integració)"
+            )
+        started = time.monotonic()
+        try:
+            res = await self.client.run(script, timeout=COMMAND_TIMEOUT)
+        except (CannotConnect, CommandError) as err:
+            raise HomeAssistantError(f"{entry.title}: {err}") from err
+        result = {
+            "command": name,
+            "exit_code": res.exit_status,
+            "stdout": str(res.stdout)[-COMMAND_OUTPUT_MAX:],
+            "stderr": res.stderr[-COMMAND_OUTPUT_MAX:],
+            "duration": round(time.monotonic() - started, 1),
+            "finished": dt_util.utcnow().isoformat(),
+        }
+        self.command_results[name] = result
+        for listener in self.command_listeners:
+            listener()
+        self.status.hass.bus.async_fire(
+            EVENT_COMMAND_FINISHED,
+            {
+                "config_entry_id": entry.entry_id,
+                "computer": entry.title,
+                "command": name,
+                "exit_code": res.exit_status,
+            },
+        )
+        return result
 
     async def async_screenshot(self) -> bytes:
         """Take a screenshot of the active graphical session."""
@@ -557,7 +654,11 @@ class Runtime:
         """Control a service."""
         init = self.status.data.init if self.status.data else "systemd"
         try:
-            res = await self.client.run(unit_command(init, unit, command), timeout=120)
+            script = unit_command(init, unit, command)
+        except ValueError as err:
+            raise HomeAssistantError(str(err)) from err
+        try:
+            res = await self.client.run(script, timeout=120)
         except (CannotConnect, CommandError) as err:
             raise HomeAssistantError(str(err)) from err
         if not res.ok:

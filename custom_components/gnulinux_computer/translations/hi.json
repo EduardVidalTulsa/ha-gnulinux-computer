@@ -1,0 +1,378 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GNU+Linux कंप्यूटर",
+        "description": "कंप्यूटर से SSH कनेक्शन। उपयोगकर्ता को sudo (wheel/sudo समूह) या doas से root बनने की अनुमति होनी चाहिए।",
+        "data": {
+          "host": "होस्ट",
+          "port": "पोर्ट",
+          "username": "उपयोगकर्ता नाम",
+          "auth_method": "प्रमाणीकरण"
+        }
+      },
+      "password": {
+        "title": "पासवर्ड",
+        "description": "{user}@{host} का पासवर्ड। sudo के लिए भी उपयोग होता है।",
+        "data": {
+          "password": "पासवर्ड"
+        }
+      },
+      "key_file": {
+        "title": "SSH कुंजी",
+        "description": "Home Assistant के भीतर निजी कुंजी का पथ (जैसे /config/.ssh/...)। sudo पासवर्ड केवल तभी चाहिए जब sudo उसे माँगे।",
+        "data": {
+          "key_path": "निजी कुंजी",
+          "sudo_password": "sudo पासवर्ड (वैकल्पिक)"
+        }
+      },
+      "generate_key": {
+        "title": "साझा SSH कुंजी",
+        "description": "इस सार्वजनिक कुंजी को **{host}** पर **{user}** की `~/.ssh/authorized_keys` में जोड़ें:\n\n`{pubkey}`\n\nउदाहरण के लिए:\n\n`{command}`\n\nफिर सबमिट दबाएँ।",
+        "data": {
+          "sudo_password": "sudo पासवर्ड (वैकल्पिक)"
+        }
+      },
+      "power": {
+        "title": "पावर क्रियाएँ",
+        "description": "Home Assistant इस कंप्यूटर पर कौन-सी क्रियाएँ चला सकता है? सर्वर के लिए सब कुछ बंद रखें।\n\nपहचानी गई स्लीप अवस्थाएँ: {detected}।",
+        "data": {
+          "allow_suspend": "सस्पेंड की अनुमति दें (RAM)",
+          "allow_hibernate": "हाइबरनेट की अनुमति दें (डिस्क)",
+          "allow_poweroff": "बंद करने की अनुमति दें"
+        }
+      },
+      "reauth_confirm": {
+        "title": "प्रमाणीकरण विफल",
+        "description": "**{host}** ने **{user}** के क्रेडेंशियल अस्वीकार कर दिए (पासवर्ड बदला गया, कुंजी हटाई गई, या होस्ट कुंजी बदल गई)। Home Assistant ने उससे जुड़ना बंद कर दिया है।\n\nनया पासवर्ड या कुंजी का पथ दर्ज करें, या Home Assistant की साझा कुंजी उपयोग करने के लिए *जनरेट* चुनें — पहले उसे `~/.ssh/authorized_keys` में जोड़ें:\n\n`{pubkey}`\n\nअभी की होस्ट कुंजी: `{fingerprint}` ({host_key_status}; पहले: `{old_fingerprint}`)। **⚠ ≠ का अर्थ है कि होस्ट कुंजी बदल गई है**: तभी सबमिट करें जब आपको कारण पता हो (जैसे कंप्यूटर दोबारा इंस्टॉल किया गया)।",
+        "data": {
+          "auth_method": "प्रमाणीकरण",
+          "password": "पासवर्ड",
+          "key_path": "निजी कुंजी (पथ)",
+          "sudo_password": "sudo पासवर्ड (केवल बदलने के लिए)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "कनेक्ट नहीं हो सका",
+      "invalid_auth": "अमान्य प्रमाणीकरण",
+      "invalid_key": "निजी कुंजी पढ़ी नहीं जा सकी",
+      "no_sudo": "उपयोगकर्ता root नहीं बन सकता: उसे wheel/sudo समूह में जोड़ें, sudo पासवर्ड दें, या doas.conf में अनुमति दें (permit nopass)"
+    },
+    "abort": {
+      "already_configured": "यह कंप्यूटर पहले से कॉन्फ़िगर है; कनेक्शन डेटा अपडेट किया गया",
+      "reauth_successful": "क्रेडेंशियल अपडेट किए गए",
+      "wrong_computer": "यह कोई दूसरा कंप्यूटर है (machine-id मेल नहीं खाता)"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "विकल्प",
+        "data": {
+          "units": "निगरानी की जाने वाली सेवाएँ",
+          "notify": "नए अपडेट की सूचना दें",
+          "update_interval": "अपडेट जाँच अंतराल",
+          "status_interval": "स्थिति अंतराल",
+          "mac": "Wake-on-LAN MAC",
+          "broadcast_address": "WoL ब्रॉडकास्ट पता",
+          "wol_method": "Wake-on-LAN विधि",
+          "allow_suspend": "सस्पेंड की अनुमति दें (RAM)",
+          "allow_hibernate": "हाइबरनेट की अनुमति दें (डिस्क)",
+          "allow_poweroff": "बंद करने की अनुमति दें",
+          "commands": "कस्टम कमांड",
+          "public_ip": "सार्वजनिक IP पता लगाएँ (कंप्यूटर api.ipify.org से पूछता है)"
+        },
+        "data_description": {
+          "commands": "प्रति पंक्ति एक: `नाम = shell कमांड`। हर कमांड एक बटन बन जाता है और run_command क्रिया से चलाया जा सकता है। root के रूप में चलाने के लिए `$SUDO` का उपयोग करें, जैसे `Backup = $SUDO systemctl start backup.service`। समय-सीमा: 5 मिनट।"
+        }
+      },
+      "wol_computer": {
+        "title": "दूसरे कंप्यूटर के माध्यम से Wake-on-LAN",
+        "description": "ऐसा कंप्यूटर चुनें जो हमेशा चालू रहता हो और इसी नेटवर्क में हो। वह मैजिक पैकेट भेजेगा (`wakeonlan` या `python3` चाहिए)।",
+        "data": {
+          "wol_relay_entry": "कंप्यूटर"
+        }
+      },
+      "wol_mikrotik": {
+        "title": "MikroTik राउटर के माध्यम से Wake-on-LAN",
+        "description": "इस कंप्यूटर के नेटवर्क का राउटर `/tool wol` से मैजिक पैकेट भेजता है।\n\nराउटर पर एक सीमित उपयोगकर्ता बनाएँ (RouterOS टर्मिनल):\n\n```\n{command}\n```\n\nदिखाई गई कुंजी नीचे दिए पथ की है (डिफ़ॉल्ट रूप से Home Assistant की साझा कुंजी)। केवल कुंजी उपयोग करने के लिए पासवर्ड खाली छोड़ें।",
+        "data": {
+          "wol_router_host": "राउटर का पता",
+          "wol_router_port": "SSH पोर्ट",
+          "wol_router_user": "उपयोगकर्ता",
+          "wol_router_key": "निजी कुंजी (पथ)",
+          "wol_router_password": "पासवर्ड (वैकल्पिक)",
+          "wol_router_interface": "इंटरफ़ेस (जैसे bridge)"
+        }
+      },
+      "wol_ha_mikrotik": {
+        "title": "Home Assistant के MikroTik के माध्यम से Wake-on-LAN",
+        "description": "MikroTik इंटीग्रेशन के कनेक्शन का उपयोग करता है (`/tool/wol`)। राउटर के API उपयोगकर्ता को **test** नीति चाहिए।",
+        "data": {
+          "wol_ha_mikrotik_entry": "राउटर",
+          "wol_router_interface": "इंटरफ़ेस (जैसे bridge)"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "अमान्य MAC",
+      "cannot_connect": "कनेक्ट नहीं हो सका",
+      "invalid_auth": "अमान्य प्रमाणीकरण",
+      "invalid_key": "निजी कुंजी पढ़ी नहीं जा सकी",
+      "not_routeros": "कनेक्ट हो गया, पर यह RouterOS नहीं लगता",
+      "invalid_commands": "अमान्य पंक्ति: `नाम = कमांड` लिखें (नाम: अक्षर, अंक, रिक्त स्थान, अधिकतम 40 वर्ण, दोहराव नहीं)",
+      "invalid_unit": "अमान्य सेवा नाम"
+    },
+    "abort": {
+      "no_other_computer": "रिले के रूप में काम करने के लिए कोई दूसरा कंप्यूटर कॉन्फ़िगर नहीं है",
+      "no_mikrotik": "पहले MikroTik इंटीग्रेशन से राउटर जोड़ें"
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "password": "उपयोगकर्ता नाम और पासवर्ड",
+        "key_file": "मौजूदा SSH कुंजी",
+        "generate_key": "Home Assistant की साझा SSH कुंजी (न होने पर बनाई जाती है)"
+      }
+    },
+    "wol_method": {
+      "options": {
+        "local": "Home Assistant से ब्रॉडकास्ट (वही नेटवर्क)",
+        "computer": "इस इंटीग्रेशन के दूसरे कंप्यूटर के माध्यम से",
+        "ha_mikrotik": "Home Assistant में जोड़े गए MikroTik राउटर के माध्यम से",
+        "mikrotik": "MikroTik राउटर के माध्यम से (SSH)"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "ऑनलाइन"
+      },
+      "unit": {
+        "name": "सेवा {unit}"
+      },
+      "reboot_required": {
+        "name": "रीबूट आवश्यक"
+      }
+    },
+    "sensor": {
+      "failed_units": {
+        "name": "विफल सेवाएँ"
+      },
+      "system_state": {
+        "name": "सिस्टम स्थिति"
+      },
+      "boot_time": {
+        "name": "पिछला बूट"
+      },
+      "load_1m": {
+        "name": "लोड (1 मिनट)"
+      },
+      "memory_used": {
+        "name": "उपयोग की गई मेमोरी"
+      },
+      "updates": {
+        "name": "लंबित अपडेट"
+      },
+      "last_check": {
+        "name": "पिछली अपडेट जाँच"
+      },
+      "volume": {
+        "name": "वॉल्यूम {mount}"
+      },
+      "services_running": {
+        "name": "चल रही सेवाएँ"
+      },
+      "services_enabled": {
+        "name": "सक्षम सेवाएँ"
+      },
+      "services_disabled": {
+        "name": "अक्षम सेवाएँ"
+      },
+      "power_total": {
+        "name": "पावर (अनुमानित)"
+      },
+      "power_cpu": {
+        "name": "CPU पावर"
+      },
+      "power_platform": {
+        "name": "प्लेटफ़ॉर्म पावर (psys)"
+      },
+      "power_gpu": {
+        "name": "GPU पावर"
+      },
+      "power_battery": {
+        "name": "बैटरी पावर"
+      },
+      "power_pmic": {
+        "name": "PMIC पावर"
+      },
+      "last_update": {
+        "name": "पिछला अपडेट",
+        "state": {
+          "running": "चल रहा है",
+          "success": "सफल",
+          "failed": "विफल"
+        }
+      },
+      "ip_address": {
+        "name": "IP पता"
+      },
+      "public_ip": {
+        "name": "सार्वजनिक IP"
+      }
+    },
+    "update": {
+      "pacman": {
+        "name": "सिस्टम पैकेज (pacman)"
+      },
+      "aur": {
+        "name": "AUR"
+      },
+      "dnf": {
+        "name": "सिस्टम पैकेज (DNF)"
+      },
+      "zypper": {
+        "name": "सिस्टम पैकेज (zypper)"
+      },
+      "apt": {
+        "name": "सिस्टम पैकेज (APT)"
+      },
+      "flatpak": {
+        "name": "Flatpak"
+      },
+      "snap": {
+        "name": "Snap"
+      },
+      "firmware": {
+        "name": "फ़र्मवेयर (fwupd)"
+      },
+      "container": {
+        "name": "कंटेनर {name}"
+      },
+      "apk": {
+        "name": "सिस्टम पैकेज (apk)"
+      },
+      "ostree": {
+        "name": "सिस्टम इमेज (rpm-ostree / bootc)"
+      }
+    },
+    "select": {
+      "power": {
+        "name": "पावर",
+        "state": {
+          "on": "चालू",
+          "suspend": "सस्पेंड (RAM)",
+          "hibernate": "हाइबरनेट (डिस्क)",
+          "poweroff": "बंद",
+          "reboot": "रीबूट"
+        }
+      },
+      "esim_profile": {
+        "name": "eSIM प्रोफ़ाइल"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "रीबूट"
+      },
+      "check_updates": {
+        "name": "अपडेट जाँचें"
+      },
+      "screenshot": {
+        "name": "स्क्रीनशॉट लें"
+      },
+      "update_all": {
+        "name": "सब अपडेट करें"
+      },
+      "command": {
+        "name": "{name}"
+      }
+    },
+    "image": {
+      "screenshot": {
+        "name": "स्क्रीनशॉट"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "स्थान"
+      }
+    }
+  },
+  "services": {
+    "service_control": {
+      "name": "सेवा नियंत्रण",
+      "description": "कंप्यूटर पर किसी सेवा को शुरू, बंद, पुनः आरंभ, सक्षम या अक्षम करता है।",
+      "fields": {
+        "config_entry_id": {
+          "name": "कंप्यूटर",
+          "description": "जिस कंप्यूटर पर कार्य करना है।"
+        },
+        "unit": {
+          "name": "सेवा",
+          "description": "सेवा का नाम (जैसे sshd.service)।"
+        },
+        "command": {
+          "name": "कमांड",
+          "description": "सेवा के साथ क्या करना है।"
+        }
+      }
+    },
+    "take_screenshot": {
+      "name": "स्क्रीनशॉट लें",
+      "description": "सक्रिय ग्राफ़िकल सत्र का स्क्रीनशॉट लेता है।",
+      "fields": {
+        "config_entry_id": {
+          "name": "कंप्यूटर",
+          "description": "जिस कंप्यूटर का स्क्रीनशॉट लेना है।"
+        }
+      }
+    },
+    "update_log": {
+      "name": "अपडेट लॉग",
+      "description": "कंप्यूटर पर चले पिछले अपडेट का आउटपुट लौटाता है।",
+      "fields": {
+        "config_entry_id": {
+          "name": "कंप्यूटर",
+          "description": "जिस कंप्यूटर का लॉग पढ़ना है।"
+        },
+        "lines": {
+          "name": "पंक्तियाँ",
+          "description": "आउटपुट के अंत से पंक्तियों की संख्या।"
+        }
+      }
+    },
+    "run_command": {
+      "name": "कस्टम कमांड चलाएँ",
+      "description": "कंप्यूटर के विकल्पों में परिभाषित कस्टम कमांड में से एक चलाता है और उसका आउटपुट लौटाता है। केवल व्यवस्थापक।",
+      "fields": {
+        "config_entry_id": {
+          "name": "कंप्यूटर",
+          "description": "जिस कंप्यूटर पर चलाना है।"
+        },
+        "command": {
+          "name": "कमांड",
+          "description": "कमांड का नाम, जैसा विकल्पों में लिखा है।"
+        }
+      }
+    },
+    "use_shared_key": {
+      "name": "साझा SSH कुंजी उपयोग करें",
+      "description": "कंप्यूटर पर उसके वर्तमान क्रेडेंशियल से Home Assistant की साझा कुंजी (/config/.ssh/gnulinux_computer) को अधिकृत करता है, जाँचता है कि वह काम करती है और उसी पर स्विच करता है। कंप्यूटर न चुनने पर सभी के लिए करता है। केवल व्यवस्थापक।",
+      "fields": {
+        "config_entry_id": {
+          "name": "कंप्यूटर",
+          "description": "सभी कंप्यूटरों के लिए खाली छोड़ें।"
+        },
+        "remove_old_key": {
+          "name": "पुरानी कुंजी हटाएँ",
+          "description": "कंप्यूटर से वह अलग कुंजी हटाता है जो इस इंटीग्रेशन ने पहले उस कंप्यूटर के लिए बनाई थी।"
+        }
+      }
+    }
+  }
+}

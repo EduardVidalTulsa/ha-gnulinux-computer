@@ -4,16 +4,24 @@
 
 from __future__ import annotations
 
+import logging
+
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
-from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryError,
+    HomeAssistantError,
+    ServiceValidationError,
+    Unauthorized,
+)
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .client import LinuxClient, load_private_key
+from .client import CannotConnect, LinuxClient, fetch_host_key, load_private_key
 from .const import (
     AUTH_PASSWORD,
     CONF_AUTH_METHOD,
@@ -25,10 +33,14 @@ from .const import (
     UNIT_COMMANDS,
 )
 from .coordinator import Runtime, StatusCoordinator, UpdatesCoordinator
+from .keys import async_use_shared_key
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
+    Platform.DEVICE_TRACKER,
     Platform.IMAGE,
     Platform.SELECT,
     Platform.SENSOR,
@@ -42,11 +54,28 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 SERVICE_UNIT = "service_control"
 SERVICE_SCREENSHOT = "take_screenshot"
 SERVICE_UPDATE_LOG = "update_log"
+SERVICE_RUN_COMMAND = "run_command"
+SERVICE_SHARED_KEY = "use_shared_key"
 ATTR_ENTRY = "config_entry_id"
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register actions."""
+
+    def _admin(handler):
+        """Only administrators (or automations) may call the action.
+
+        The actions run as root on the computers, so plain users are refused.
+        """
+
+        async def wrapped(call: ServiceCall) -> ServiceResponse:
+            if call.context.user_id:
+                user = await hass.auth.async_get_user(call.context.user_id)
+                if user is None or not user.is_admin:
+                    raise Unauthorized(context=call.context)
+            return await handler(call)
+
+        return wrapped
 
     def _runtime(call: ServiceCall) -> Runtime:
         entry = hass.config_entries.async_get_entry(call.data[ATTR_ENTRY])
@@ -63,7 +92,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.services.async_register(
         DOMAIN,
         SERVICE_UNIT,
-        unit_control,
+        _admin(unit_control),
         schema=vol.Schema(
             {
                 vol.Required(ATTR_ENTRY): cv.string,
@@ -88,7 +117,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.services.async_register(
         DOMAIN,
         SERVICE_UPDATE_LOG,
-        update_log,
+        _admin(update_log),
         schema=vol.Schema(
             {
                 vol.Required(ATTR_ENTRY): cv.string,
@@ -100,8 +129,55 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.services.async_register(
         DOMAIN,
         SERVICE_SCREENSHOT,
-        screenshot,
+        _admin(screenshot),
         schema=vol.Schema({vol.Required(ATTR_ENTRY): cv.string}),
+    )
+
+    async def run_command(call: ServiceCall) -> ServiceResponse:
+        # Only the name of a command defined in the options: never free text.
+        entry = hass.config_entries.async_get_entry(call.data[ATTR_ENTRY])
+        result = await _runtime(call).async_command(call.data["command"], entry)
+        return result if call.return_response else None
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RUN_COMMAND,
+        _admin(run_command),
+        schema=vol.Schema(
+            {vol.Required(ATTR_ENTRY): cv.string, vol.Required("command"): cv.string}
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+
+    async def use_shared_key(call: ServiceCall) -> ServiceResponse:
+        """Move one computer (or all of them) to the shared SSH key of the pool."""
+        if entry_id := call.data.get(ATTR_ENTRY):
+            _runtime(call)
+            entries = [hass.config_entries.async_get_entry(entry_id)]
+        else:
+            entries = hass.config_entries.async_entries(DOMAIN)
+        results: dict[str, str] = {}
+        for entry in entries:
+            try:
+                results[entry.title] = await async_use_shared_key(
+                    hass, entry, remove_old=call.data["remove_old_key"]
+                )
+            except HomeAssistantError as err:
+                results[entry.title] = f"error: {err}"
+        _LOGGER.info("use_shared_key: %s", results)
+        return {"computers": results} if call.return_response else None
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SHARED_KEY,
+        _admin(use_shared_key),
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_ENTRY): cv.string,
+                vol.Optional("remove_old_key", default=True): cv.boolean,
+            }
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
     )
     return True
 
@@ -115,6 +191,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: GLConfigEntry) -> bool:
             key = await hass.async_add_executor_job(load_private_key, data[CONF_KEY_PATH])
         except (OSError, ValueError) as err:
             raise ConfigEntryError(f"Cannot read key {data[CONF_KEY_PATH]}: {err}") from err
+    if not data.get(CONF_HOST_KEY):
+        # Entries created without the config flow: pin the host key now
+        # (trust on first use) instead of connecting without verifying it.
+        try:
+            host_key = await fetch_host_key(data[CONF_HOST], data.get(CONF_PORT, DEFAULT_PORT))
+        except CannotConnect:
+            host_key = None  # asleep: pinned at the next start
+        else:
+            _LOGGER.warning("%s: SSH host key pinned on first use", data[CONF_HOST])
+            hass.config_entries.async_update_entry(entry, data={**data, CONF_HOST_KEY: host_key})
+            data = entry.data
     client = LinuxClient(
         data[CONF_HOST],
         data.get(CONF_PORT, DEFAULT_PORT),
@@ -130,6 +217,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: GLConfigEntry) -> bool:
 
     # The computer may be asleep: never fail setup because it is offline.
     await status.async_refresh()
+    if client.auth_error:
+        # Rejected credentials: do not keep trying, ask for new ones (reauth).
+        await client.close()
+        raise ConfigEntryAuthFailed(client.auth_error)
     await updates.async_refresh()
     if status.online:
         # Installs started before a restart keep running on the computer.

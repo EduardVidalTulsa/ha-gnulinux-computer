@@ -1,0 +1,378 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "מחשב GNU+Linux",
+        "description": "חיבור SSH למחשב. המשתמש חייב להיות מסוגל לקבל הרשאות root באמצעות sudo (קבוצת wheel/sudo) או doas.",
+        "data": {
+          "host": "מארח",
+          "port": "פורט",
+          "username": "שם משתמש",
+          "auth_method": "אימות"
+        }
+      },
+      "password": {
+        "title": "סיסמה",
+        "description": "הסיסמה של {user}@{host}. משמשת גם ל-sudo.",
+        "data": {
+          "password": "סיסמה"
+        }
+      },
+      "key_file": {
+        "title": "מפתח SSH",
+        "description": "נתיב המפתח הפרטי בתוך Home Assistant (למשל ‎/config/.ssh/...‎). סיסמת sudo נדרשת רק אם sudo מבקש אותה.",
+        "data": {
+          "key_path": "מפתח פרטי",
+          "sudo_password": "סיסמת sudo (אופציונלי)"
+        }
+      },
+      "generate_key": {
+        "title": "מפתח SSH משותף",
+        "description": "הוסף את המפתח הציבורי הזה ל-`~/.ssh/authorized_keys` של **{user}** ב-**{host}**:\n\n`{pubkey}`\n\nלדוגמה:\n\n`{command}`\n\nלאחר מכן לחץ על שלח.",
+        "data": {
+          "sudo_password": "סיסמת sudo (אופציונלי)"
+        }
+      },
+      "power": {
+        "title": "פעולות חשמל",
+        "description": "אילו פעולות מותר ל-Home Assistant להריץ במחשב הזה? בשרתים השאר הכול כבוי.\n\nמצבי שינה שזוהו: {detected}.",
+        "data": {
+          "allow_suspend": "אפשר השהיה (RAM)",
+          "allow_hibernate": "אפשר שנת חורף (דיסק)",
+          "allow_poweroff": "אפשר כיבוי"
+        }
+      },
+      "reauth_confirm": {
+        "title": "האימות נכשל",
+        "description": "**{host}** דחה את פרטי ההתחברות של **{user}** (הסיסמה שונתה, המפתח הוסר או שמפתח המארח השתנה). Home Assistant הפסיק להתחבר אליו.\n\nהזן את הסיסמה החדשה או נתיב של מפתח, או בחר *צור* כדי להשתמש במפתח המשותף של Home Assistant — קודם הוסף אותו ל-`~/.ssh/authorized_keys`:\n\n`{pubkey}`\n\nמפתח המארח כעת: `{fingerprint}` ({host_key_status}; קודם: `{old_fingerprint}`). **⚠ ≠ פירושו שמפתח המארח השתנה**: שלח רק אם ידוע לך מדוע (למשל המחשב הותקן מחדש).",
+        "data": {
+          "auth_method": "אימות",
+          "password": "סיסמה",
+          "key_path": "מפתח פרטי (נתיב)",
+          "sudo_password": "סיסמת sudo (רק כדי לשנות אותה)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "לא ניתן להתחבר",
+      "invalid_auth": "אימות לא תקין",
+      "invalid_key": "לא ניתן לקרוא את המפתח הפרטי",
+      "no_sudo": "המשתמש אינו יכול לקבל הרשאות root: הוסף אותו לקבוצת wheel/sudo, ספק את סיסמת sudo, או אפשר זאת ב-doas.conf ‏(permit nopass)"
+    },
+    "abort": {
+      "already_configured": "המחשב הזה כבר מוגדר; נתוני החיבור עודכנו",
+      "reauth_successful": "פרטי ההתחברות עודכנו",
+      "wrong_computer": "זהו מחשב אחר (ה-machine-id אינו תואם)"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "אפשרויות",
+        "data": {
+          "units": "שירותים לניטור",
+          "notify": "הודע על עדכונים חדשים",
+          "update_interval": "מרווח בדיקת עדכונים",
+          "status_interval": "מרווח מצב",
+          "mac": "כתובת MAC ל-Wake-on-LAN",
+          "broadcast_address": "כתובת שידור של WoL",
+          "wol_method": "שיטת Wake-on-LAN",
+          "allow_suspend": "אפשר השהיה (RAM)",
+          "allow_hibernate": "אפשר שנת חורף (דיסק)",
+          "allow_poweroff": "אפשר כיבוי",
+          "commands": "פקודות מותאמות אישית",
+          "public_ip": "זהה את כתובת ה-IP הציבורית (המחשב שואל את api.ipify.org)"
+        },
+        "data_description": {
+          "commands": "אחת בכל שורה: `שם = פקודת shell`. כל פקודה הופכת ללחצן וניתן להריץ אותה עם הפעולה run_command. השתמש ב-`$SUDO` כדי להריץ כ-root, למשל `Backup = $SUDO systemctl start backup.service`. זמן מרבי: 5 דקות."
+        }
+      },
+      "wol_computer": {
+        "title": "Wake-on-LAN דרך מחשב אחר",
+        "description": "בחר מחשב שתמיד דולק ונמצא באותה רשת כמו המחשב הזה. הוא ישלח את חבילת הקסם (דורש `wakeonlan` או `python3`).",
+        "data": {
+          "wol_relay_entry": "מחשב"
+        }
+      },
+      "wol_mikrotik": {
+        "title": "Wake-on-LAN דרך נתב MikroTik",
+        "description": "הנתב של הרשת של המחשב הזה שולח את חבילת הקסם עם `/tool wol`.\n\nצור משתמש מוגבל בנתב (מסוף RouterOS):\n\n```\n{command}\n```\n\nהמפתח המוצג הוא זה שבנתיב שלמטה (כברירת מחדל, המפתח המשותף של Home Assistant). השאר את הסיסמה ריקה כדי להשתמש במפתח בלבד.",
+        "data": {
+          "wol_router_host": "כתובת הנתב",
+          "wol_router_port": "פורט SSH",
+          "wol_router_user": "משתמש",
+          "wol_router_key": "מפתח פרטי (נתיב)",
+          "wol_router_password": "סיסמה (אופציונלי)",
+          "wol_router_interface": "ממשק (למשל bridge)"
+        }
+      },
+      "wol_ha_mikrotik": {
+        "title": "Wake-on-LAN דרך MikroTik של Home Assistant",
+        "description": "משתמש בחיבור של אינטגרציית MikroTik ‏(`/tool/wol`). משתמש ה-API של הנתב צריך את המדיניות **test**.",
+        "data": {
+          "wol_ha_mikrotik_entry": "נתב",
+          "wol_router_interface": "ממשק (למשל bridge)"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "כתובת MAC לא תקינה",
+      "cannot_connect": "לא ניתן להתחבר",
+      "invalid_auth": "אימות לא תקין",
+      "invalid_key": "לא ניתן לקרוא את המפתח הפרטי",
+      "not_routeros": "מחובר, אך זה לא נראה כמו RouterOS",
+      "invalid_commands": "שורה לא תקינה: השתמש ב-`שם = פקודה` (שם: אותיות, ספרות, רווחים, עד 40 תווים, ללא כפילויות)",
+      "invalid_unit": "שם שירות לא תקין"
+    },
+    "abort": {
+      "no_other_computer": "אין מחשב אחר מוגדר שיכול לשמש כממסר",
+      "no_mikrotik": "קודם הוסף את הנתב באמצעות אינטגרציית MikroTik"
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "password": "שם משתמש וסיסמה",
+        "key_file": "מפתח SSH קיים",
+        "generate_key": "מפתח SSH משותף של Home Assistant (נוצר אם אינו קיים)"
+      }
+    },
+    "wol_method": {
+      "options": {
+        "local": "שידור מ-Home Assistant (אותה רשת)",
+        "computer": "דרך מחשב אחר של האינטגרציה הזו",
+        "ha_mikrotik": "דרך נתב MikroTik שנוסף ל-Home Assistant",
+        "mikrotik": "דרך נתב MikroTik ‏(SSH)"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "מקוון"
+      },
+      "unit": {
+        "name": "שירות {unit}"
+      },
+      "reboot_required": {
+        "name": "נדרש אתחול מחדש"
+      }
+    },
+    "sensor": {
+      "failed_units": {
+        "name": "שירותים שנכשלו"
+      },
+      "system_state": {
+        "name": "מצב המערכת"
+      },
+      "boot_time": {
+        "name": "אתחול אחרון"
+      },
+      "load_1m": {
+        "name": "עומס (דקה אחת)"
+      },
+      "memory_used": {
+        "name": "זיכרון בשימוש"
+      },
+      "updates": {
+        "name": "עדכונים ממתינים"
+      },
+      "last_check": {
+        "name": "בדיקת עדכונים אחרונה"
+      },
+      "volume": {
+        "name": "כרך {mount}"
+      },
+      "services_running": {
+        "name": "שירותים פעילים"
+      },
+      "services_enabled": {
+        "name": "שירותים מאופשרים"
+      },
+      "services_disabled": {
+        "name": "שירותים מושבתים"
+      },
+      "power_total": {
+        "name": "הספק (משוער)"
+      },
+      "power_cpu": {
+        "name": "הספק CPU"
+      },
+      "power_platform": {
+        "name": "הספק פלטפורמה (psys)"
+      },
+      "power_gpu": {
+        "name": "הספק GPU"
+      },
+      "power_battery": {
+        "name": "הספק סוללה"
+      },
+      "power_pmic": {
+        "name": "הספק PMIC"
+      },
+      "last_update": {
+        "name": "עדכון אחרון",
+        "state": {
+          "running": "מתבצע",
+          "success": "הצליח",
+          "failed": "נכשל"
+        }
+      },
+      "ip_address": {
+        "name": "כתובת IP"
+      },
+      "public_ip": {
+        "name": "כתובת IP ציבורית"
+      }
+    },
+    "update": {
+      "pacman": {
+        "name": "חבילות מערכת (pacman)"
+      },
+      "aur": {
+        "name": "AUR"
+      },
+      "dnf": {
+        "name": "חבילות מערכת (DNF)"
+      },
+      "zypper": {
+        "name": "חבילות מערכת (zypper)"
+      },
+      "apt": {
+        "name": "חבילות מערכת (APT)"
+      },
+      "flatpak": {
+        "name": "Flatpak"
+      },
+      "snap": {
+        "name": "Snap"
+      },
+      "firmware": {
+        "name": "קושחה (fwupd)"
+      },
+      "container": {
+        "name": "מכולה {name}"
+      },
+      "apk": {
+        "name": "חבילות מערכת (apk)"
+      },
+      "ostree": {
+        "name": "תמונת מערכת (rpm-ostree / bootc)"
+      }
+    },
+    "select": {
+      "power": {
+        "name": "חשמל",
+        "state": {
+          "on": "דולק",
+          "suspend": "מושהה (RAM)",
+          "hibernate": "בשנת חורף (דיסק)",
+          "poweroff": "כבוי",
+          "reboot": "אתחול מחדש"
+        }
+      },
+      "esim_profile": {
+        "name": "פרופיל eSIM"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "אתחול מחדש"
+      },
+      "check_updates": {
+        "name": "בדוק עדכונים"
+      },
+      "screenshot": {
+        "name": "צלם מסך"
+      },
+      "update_all": {
+        "name": "עדכן הכול"
+      },
+      "command": {
+        "name": "{name}"
+      }
+    },
+    "image": {
+      "screenshot": {
+        "name": "צילום מסך"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "מיקום"
+      }
+    }
+  },
+  "services": {
+    "service_control": {
+      "name": "שליטה בשירותים",
+      "description": "מפעיל, עוצר, מפעיל מחדש, מאפשר או משבית שירות במחשב.",
+      "fields": {
+        "config_entry_id": {
+          "name": "מחשב",
+          "description": "המחשב שעליו לפעול."
+        },
+        "unit": {
+          "name": "שירות",
+          "description": "שם השירות (למשל sshd.service)."
+        },
+        "command": {
+          "name": "פקודה",
+          "description": "מה לעשות עם השירות."
+        }
+      }
+    },
+    "take_screenshot": {
+      "name": "צלם מסך",
+      "description": "מצלם את המסך של ההפעלה הגרפית הפעילה.",
+      "fields": {
+        "config_entry_id": {
+          "name": "מחשב",
+          "description": "המחשב שאת מסכו לצלם."
+        }
+      }
+    },
+    "update_log": {
+      "name": "יומן עדכון",
+      "description": "מחזיר את הפלט של העדכון האחרון שרץ במחשב.",
+      "fields": {
+        "config_entry_id": {
+          "name": "מחשב",
+          "description": "המחשב שממנו לקרוא את היומן."
+        },
+        "lines": {
+          "name": "שורות",
+          "description": "מספר השורות מסוף הפלט."
+        }
+      }
+    },
+    "run_command": {
+      "name": "הרץ פקודה מותאמת אישית",
+      "description": "מריץ אחת מהפקודות המותאמות אישית שהוגדרו באפשרויות המחשב ומחזיר את הפלט שלה. למנהלים בלבד.",
+      "fields": {
+        "config_entry_id": {
+          "name": "מחשב",
+          "description": "המחשב שבו להריץ."
+        },
+        "command": {
+          "name": "פקודה",
+          "description": "שם הפקודה, כפי שנכתב באפשרויות."
+        }
+      }
+    },
+    "use_shared_key": {
+      "name": "השתמש במפתח ה-SSH המשותף",
+      "description": "מאשר את המפתח המשותף של Home Assistant ‏(/config/.ssh/gnulinux_computer) במחשב באמצעות פרטי ההתחברות הנוכחיים, בודק שהוא עובד ועובר להשתמש בו. ללא מחשב — מבצע זאת בכולם. למנהלים בלבד.",
+      "fields": {
+        "config_entry_id": {
+          "name": "מחשב",
+          "description": "השאר ריק עבור כל המחשבים."
+        },
+        "remove_old_key": {
+          "name": "הסר את המפתח הישן",
+          "description": "מסיר מהמחשב את המפתח הייעודי שהאינטגרציה הזו יצרה קודם לכן."
+        }
+      }
+    }
+  }
+}

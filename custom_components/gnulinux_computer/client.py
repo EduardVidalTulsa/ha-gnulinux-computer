@@ -13,6 +13,12 @@ import asyncssh
 
 _LOGGER = logging.getLogger(__name__)
 
+# At INFO level asyncssh writes every command (our whole scripts, including
+# custom commands) to the log on each poll. Keep it quiet unless the user set
+# a level for it in the logger integration.
+if (_ssh_logger := logging.getLogger("asyncssh")).level == logging.NOTSET:
+    _ssh_logger.setLevel(logging.WARNING)
+
 CONNECT_TIMEOUT = 10
 
 # Every remote command runs under POSIX sh (the login shell may be zsh/fish)
@@ -20,6 +26,9 @@ CONNECT_TIMEOUT = 10
 # by the preamble depending on how privilege escalation works for the user.
 _PREAMBLE_ROOT = 'SUDO=""; SUDOFLAGS=""\n'
 _PREAMBLE_NOPASSWD = 'SUDO="sudo -n"; SUDOFLAGS="-n"\n'
+# Alpine and others use doas instead of sudo (only without password: doas has
+# no askpass mechanism).
+_PREAMBLE_DOAS = 'SUDO="doas -n"; SUDOFLAGS=""\n'
 # The sudo password arrives on stdin and is handed to sudo through an askpass
 # helper, so nested sudo calls (yay, paru...) can also use it.
 _PREAMBLE_ASKPASS = """IFS= read -r GLC_PW; export GLC_PW
@@ -36,6 +45,10 @@ SUDO="sudo -A"; SUDOFLAGS="-A"
 
 class CannotConnect(Exception):
     """Error connecting to the computer."""
+
+
+class AuthFailed(CannotConnect):
+    """The computer rejected our credentials (or its host key changed)."""
 
 
 class CommandError(Exception):
@@ -87,6 +100,10 @@ class LinuxClient:
         self._lock = asyncio.Lock()
         # Set once we know whether sudo needs a password.
         self.sudo_nopasswd: bool | None = None
+        self.use_doas = False
+        # After rejected credentials we never try again with the same ones
+        # (no login storm, no fail2ban lock-out): the entry must be reloaded.
+        self.auth_error: str | None = None
 
     @property
     def is_root(self) -> bool:
@@ -97,6 +114,8 @@ class LinuxClient:
         async with self._lock:
             if self._conn is not None and not self._conn.is_closed():
                 return self._conn
+            if self.auth_error:
+                raise AuthFailed(self.auth_error)
             known_hosts = None
             if self._host_key:
                 known_hosts = ([asyncssh.import_public_key(self._host_key)], [], [])
@@ -117,6 +136,12 @@ class LinuxClient:
                     ),
                     CONNECT_TIMEOUT + 5,
                 )
+            except (asyncssh.PermissionDenied, asyncssh.HostKeyNotVerifiable) as err:
+                # Wrong/removed credentials or a changed host key: retrying
+                # will not help (and trips fail2ban). Needs the user.
+                self._conn = None
+                self.auth_error = f"{self.host}: {err}"
+                raise AuthFailed(self.auth_error) from err
             except (OSError, asyncssh.Error, TimeoutError) as err:
                 self._conn = None
                 raise CannotConnect(f"{self.host}: {err}") from err
@@ -131,6 +156,8 @@ class LinuxClient:
     def _preamble(self) -> tuple[str, str | None]:
         if self.is_root:
             return _PREAMBLE_ROOT, None
+        if self.use_doas:
+            return _PREAMBLE_DOAS, None
         if self.sudo_nopasswd is False and self._sudo_password:
             return _PREAMBLE_ASKPASS, self._sudo_password + "\n"
         return _PREAMBLE_NOPASSWD, None
@@ -194,25 +221,33 @@ class LinuxClient:
         )
 
     async def detect_sudo(self) -> bool:
-        """Detect whether sudo works without a password. Return True if sudo works."""
+        """Detect how to become root: sudo (with or without password) or doas.
+
+        Return True if privilege escalation works.
+        """
         if self.is_root:
             self.sudo_nopasswd = True
             return True
         conn = await self._connect()
         try:
             res = await conn.run("sudo -n true", check=False, timeout=15)
+            if res.exit_status == 0:
+                self.sudo_nopasswd = True
+                return True
+            res = await conn.run("doas -n true", check=False, timeout=15)
+            if res.exit_status == 0:
+                self.sudo_nopasswd = True
+                self.use_doas = True
+                return True
+            self.sudo_nopasswd = False
+            if not self._sudo_password:
+                return False
+            res = await conn.run(
+                "sudo -S -p '' -k true", input=self._sudo_password + "\n", check=False, timeout=15
+            )
         except (OSError, asyncssh.Error) as err:
             await self.close()
             raise CannotConnect(str(err)) from err
-        if res.exit_status == 0:
-            self.sudo_nopasswd = True
-            return True
-        self.sudo_nopasswd = False
-        if not self._sudo_password:
-            return False
-        res = await conn.run(
-            "sudo -S -p '' -k true", input=self._sudo_password + "\n", check=False, timeout=15
-        )
         return res.exit_status == 0
 
 

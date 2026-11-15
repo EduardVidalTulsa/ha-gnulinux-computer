@@ -67,6 +67,12 @@
           "success": "mdi:check-circle-outline",
           "failed": "mdi:alert-circle-outline"
         }
+      },
+      "ip_address": {
+        "default": "mdi:ip-network"
+      },
+      "public_ip": {
+        "default": "mdi:earth"
       }
     },
     "update": {
@@ -78,6 +84,12 @@
       },
       "firmware": {
         "default": "mdi:chip"
+      },
+      "apk": {
+        "default": "mdi:package-variant"
+      },
+      "ostree": {
+        "default": "mdi:layers-triple"
       }
     },
     "select": {
@@ -90,6 +102,9 @@
           "poweroff": "mdi:power-off",
           "reboot": "mdi:restart"
         }
+      },
+      "esim_profile": {
+        "default": "mdi:sim"
       }
     },
     "button": {
@@ -101,11 +116,19 @@
       },
       "update_all": {
         "default": "mdi:update"
+      },
+      "command": {
+        "default": "mdi:console-line"
       }
     },
     "image": {
       "screenshot": {
         "default": "mdi:monitor-screenshot"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "default": "mdi:crosshairs-gps"
       }
     }
   },
@@ -118,6 +141,12 @@
     },
     "update_log": {
       "service": "mdi:text-box-search-outline"
+    },
+    "run_command": {
+      "service": "mdi:console-line"
+    },
+    "use_shared_key": {
+      "service": "mdi:key-chain"
     }
   }
 }

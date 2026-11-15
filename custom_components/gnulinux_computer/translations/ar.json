@@ -1,0 +1,378 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "حاسوب GNU+Linux",
+        "description": "اتصال SSH بالحاسوب. يجب أن يتمكن المستخدم من الحصول على صلاحيات root عبر sudo (مجموعة wheel/sudo) أو doas.",
+        "data": {
+          "host": "المضيف",
+          "port": "المنفذ",
+          "username": "اسم المستخدم",
+          "auth_method": "المصادقة"
+        }
+      },
+      "password": {
+        "title": "كلمة المرور",
+        "description": "كلمة مرور {user}@{host}. تُستخدم أيضًا مع sudo.",
+        "data": {
+          "password": "كلمة المرور"
+        }
+      },
+      "key_file": {
+        "title": "مفتاح SSH",
+        "description": "مسار المفتاح الخاص داخل Home Assistant (مثل ‎/config/.ssh/...‎). كلمة مرور sudo مطلوبة فقط إذا طلبها sudo.",
+        "data": {
+          "key_path": "المفتاح الخاص",
+          "sudo_password": "كلمة مرور sudo (اختياري)"
+        }
+      },
+      "generate_key": {
+        "title": "مفتاح SSH المشترك",
+        "description": "أضف هذا المفتاح العام إلى `~/.ssh/authorized_keys` للمستخدم **{user}** على **{host}**:\n\n`{pubkey}`\n\nمثلًا:\n\n`{command}`\n\nثم اضغط إرسال.",
+        "data": {
+          "sudo_password": "كلمة مرور sudo (اختياري)"
+        }
+      },
+      "power": {
+        "title": "إجراءات الطاقة",
+        "description": "ما الإجراءات التي يُسمح لـ Home Assistant بتنفيذها على هذا الحاسوب؟ اتركها كلها معطّلة للخوادم.\n\nحالات السكون المكتشفة: {detected}.",
+        "data": {
+          "allow_suspend": "السماح بالتعليق (الذاكرة)",
+          "allow_hibernate": "السماح بالإسبات (القرص)",
+          "allow_poweroff": "السماح بإيقاف التشغيل"
+        }
+      },
+      "reauth_confirm": {
+        "title": "فشلت المصادقة",
+        "description": "رفض **{host}** بيانات اعتماد **{user}** (تغيّرت كلمة المرور، أو حُذف المفتاح، أو تغيّر مفتاح المضيف). توقّف Home Assistant عن الاتصال به.\n\nأدخل كلمة المرور الجديدة أو مسار مفتاح، أو اختر *توليد* لاستخدام المفتاح المشترك لـ Home Assistant — أضفه أولًا إلى `~/.ssh/authorized_keys`:\n\n`{pubkey}`\n\nمفتاح المضيف الآن: `{fingerprint}` ({host_key_status}؛ سابقًا: `{old_fingerprint}`). **⚠ ≠ تعني أن مفتاح المضيف قد تغيّر**: أرسل فقط إذا كنت تعرف السبب (مثلًا أُعيد تثبيت الحاسوب).",
+        "data": {
+          "auth_method": "المصادقة",
+          "password": "كلمة المرور",
+          "key_path": "المفتاح الخاص (المسار)",
+          "sudo_password": "كلمة مرور sudo (لتغييرها فقط)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "تعذّر الاتصال",
+      "invalid_auth": "مصادقة غير صالحة",
+      "invalid_key": "تعذّرت قراءة المفتاح الخاص",
+      "no_sudo": "لا يستطيع المستخدم الحصول على صلاحيات root: أضفه إلى مجموعة wheel/sudo، أو أدخل كلمة مرور sudo، أو اسمح له في doas.conf ‏(permit nopass)"
+    },
+    "abort": {
+      "already_configured": "هذا الحاسوب مُعدّ مسبقًا؛ تم تحديث بيانات الاتصال",
+      "reauth_successful": "تم تحديث بيانات الاعتماد",
+      "wrong_computer": "هذا حاسوب آخر (machine-id غير مطابق)"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "الخيارات",
+        "data": {
+          "units": "الخدمات المراد مراقبتها",
+          "notify": "الإشعار بالتحديثات الجديدة",
+          "update_interval": "الفاصل الزمني للتحقق من التحديثات",
+          "status_interval": "الفاصل الزمني للحالة",
+          "mac": "عنوان MAC لـ Wake-on-LAN",
+          "broadcast_address": "عنوان البث لـ WoL",
+          "wol_method": "طريقة Wake-on-LAN",
+          "allow_suspend": "السماح بالتعليق (الذاكرة)",
+          "allow_hibernate": "السماح بالإسبات (القرص)",
+          "allow_poweroff": "السماح بإيقاف التشغيل",
+          "commands": "أوامر مخصصة",
+          "public_ip": "اكتشاف عنوان IP العام (يستعلم الحاسوب من api.ipify.org)"
+        },
+        "data_description": {
+          "commands": "أمر واحد في كل سطر: `الاسم = أمر shell`. يصبح كل أمر زرًّا ويمكن تشغيله بالإجراء run_command. استخدم `$SUDO` للتشغيل بصلاحيات root، مثل `Backup = $SUDO systemctl start backup.service`. المهلة: 5 دقائق."
+        }
+      },
+      "wol_computer": {
+        "title": "Wake-on-LAN عبر حاسوب آخر",
+        "description": "اختر حاسوبًا يعمل دائمًا وموجودًا في الشبكة نفسها. سيرسل الحزمة السحرية (يتطلب `wakeonlan` أو `python3`).",
+        "data": {
+          "wol_relay_entry": "الحاسوب"
+        }
+      },
+      "wol_mikrotik": {
+        "title": "Wake-on-LAN عبر موجّه MikroTik",
+        "description": "يرسل موجّه شبكة هذا الحاسوب الحزمة السحرية بالأمر `/tool wol`.\n\nأنشئ مستخدمًا مقيّدًا على الموجّه (طرفية RouterOS):\n\n```\n{command}\n```\n\nالمفتاح المعروض هو مفتاح المسار أدناه (افتراضيًا المفتاح المشترك لـ Home Assistant). اترك كلمة المرور فارغة لاستخدام المفتاح فقط.",
+        "data": {
+          "wol_router_host": "عنوان الموجّه",
+          "wol_router_port": "منفذ SSH",
+          "wol_router_user": "المستخدم",
+          "wol_router_key": "المفتاح الخاص (المسار)",
+          "wol_router_password": "كلمة المرور (اختياري)",
+          "wol_router_interface": "الواجهة (مثل bridge)"
+        }
+      },
+      "wol_ha_mikrotik": {
+        "title": "Wake-on-LAN عبر MikroTik مضاف إلى Home Assistant",
+        "description": "يستخدم اتصال تكامل MikroTik ‏(`/tool/wol`). يحتاج مستخدم API في الموجّه إلى الصلاحية **test**.",
+        "data": {
+          "wol_ha_mikrotik_entry": "الموجّه",
+          "wol_router_interface": "الواجهة (مثل bridge)"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "عنوان MAC غير صالح",
+      "cannot_connect": "تعذّر الاتصال",
+      "invalid_auth": "مصادقة غير صالحة",
+      "invalid_key": "تعذّرت قراءة المفتاح الخاص",
+      "not_routeros": "تم الاتصال، لكنه لا يبدو RouterOS",
+      "invalid_commands": "سطر غير صالح: استخدم `الاسم = الأمر` (الاسم: حروف وأرقام ومسافات، حتى 40 حرفًا، دون تكرار)",
+      "invalid_unit": "اسم خدمة غير صالح"
+    },
+    "abort": {
+      "no_other_computer": "لا يوجد حاسوب آخر مُعدّ ليعمل وسيطًا",
+      "no_mikrotik": "أضف الموجّه أولًا عبر تكامل MikroTik"
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "password": "اسم المستخدم وكلمة المرور",
+        "key_file": "مفتاح SSH موجود",
+        "generate_key": "مفتاح SSH المشترك لـ Home Assistant (يُنشأ إن لم يكن موجودًا)"
+      }
+    },
+    "wol_method": {
+      "options": {
+        "local": "بث من Home Assistant (الشبكة نفسها)",
+        "computer": "عبر حاسوب آخر في هذا التكامل",
+        "ha_mikrotik": "عبر موجّه MikroTik مضاف إلى Home Assistant",
+        "mikrotik": "عبر موجّه MikroTik ‏(SSH)"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "متصل"
+      },
+      "unit": {
+        "name": "الخدمة {unit}"
+      },
+      "reboot_required": {
+        "name": "إعادة التشغيل مطلوبة"
+      }
+    },
+    "sensor": {
+      "failed_units": {
+        "name": "الخدمات الفاشلة"
+      },
+      "system_state": {
+        "name": "حالة النظام"
+      },
+      "boot_time": {
+        "name": "آخر إقلاع"
+      },
+      "load_1m": {
+        "name": "الحِمل (دقيقة واحدة)"
+      },
+      "memory_used": {
+        "name": "الذاكرة المستخدمة"
+      },
+      "updates": {
+        "name": "التحديثات المعلّقة"
+      },
+      "last_check": {
+        "name": "آخر تحقق من التحديثات"
+      },
+      "volume": {
+        "name": "وحدة التخزين {mount}"
+      },
+      "services_running": {
+        "name": "الخدمات العاملة"
+      },
+      "services_enabled": {
+        "name": "الخدمات المفعّلة"
+      },
+      "services_disabled": {
+        "name": "الخدمات المعطّلة"
+      },
+      "power_total": {
+        "name": "القدرة (تقديرية)"
+      },
+      "power_cpu": {
+        "name": "قدرة المعالج"
+      },
+      "power_platform": {
+        "name": "قدرة المنصة (psys)"
+      },
+      "power_gpu": {
+        "name": "قدرة معالج الرسوميات"
+      },
+      "power_battery": {
+        "name": "قدرة البطارية"
+      },
+      "power_pmic": {
+        "name": "قدرة PMIC"
+      },
+      "last_update": {
+        "name": "آخر تحديث",
+        "state": {
+          "running": "قيد التنفيذ",
+          "success": "ناجح",
+          "failed": "فاشل"
+        }
+      },
+      "ip_address": {
+        "name": "عنوان IP"
+      },
+      "public_ip": {
+        "name": "عنوان IP العام"
+      }
+    },
+    "update": {
+      "pacman": {
+        "name": "حزم النظام (pacman)"
+      },
+      "aur": {
+        "name": "AUR"
+      },
+      "dnf": {
+        "name": "حزم النظام (DNF)"
+      },
+      "zypper": {
+        "name": "حزم النظام (zypper)"
+      },
+      "apt": {
+        "name": "حزم النظام (APT)"
+      },
+      "flatpak": {
+        "name": "Flatpak"
+      },
+      "snap": {
+        "name": "Snap"
+      },
+      "firmware": {
+        "name": "البرنامج الثابت (fwupd)"
+      },
+      "container": {
+        "name": "الحاوية {name}"
+      },
+      "apk": {
+        "name": "حزم النظام (apk)"
+      },
+      "ostree": {
+        "name": "صورة النظام (rpm-ostree / bootc)"
+      }
+    },
+    "select": {
+      "power": {
+        "name": "الطاقة",
+        "state": {
+          "on": "يعمل",
+          "suspend": "معلّق (الذاكرة)",
+          "hibernate": "في إسبات (القرص)",
+          "poweroff": "متوقف",
+          "reboot": "إعادة التشغيل"
+        }
+      },
+      "esim_profile": {
+        "name": "ملف تعريف eSIM"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "إعادة التشغيل"
+      },
+      "check_updates": {
+        "name": "التحقق من التحديثات"
+      },
+      "screenshot": {
+        "name": "التقاط لقطة شاشة"
+      },
+      "update_all": {
+        "name": "تحديث الكل"
+      },
+      "command": {
+        "name": "{name}"
+      }
+    },
+    "image": {
+      "screenshot": {
+        "name": "لقطة الشاشة"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "الموقع"
+      }
+    }
+  },
+  "services": {
+    "service_control": {
+      "name": "التحكم بالخدمات",
+      "description": "يبدأ خدمة على الحاسوب أو يوقفها أو يعيد تشغيلها أو يفعّلها أو يعطّلها.",
+      "fields": {
+        "config_entry_id": {
+          "name": "الحاسوب",
+          "description": "الحاسوب المراد التنفيذ عليه."
+        },
+        "unit": {
+          "name": "الخدمة",
+          "description": "اسم الخدمة (مثل sshd.service)."
+        },
+        "command": {
+          "name": "الأمر",
+          "description": "ما المطلوب فعله بالخدمة."
+        }
+      }
+    },
+    "take_screenshot": {
+      "name": "التقاط لقطة شاشة",
+      "description": "يلتقط لقطة شاشة للجلسة الرسومية النشطة.",
+      "fields": {
+        "config_entry_id": {
+          "name": "الحاسوب",
+          "description": "الحاسوب المراد التقاط شاشته."
+        }
+      }
+    },
+    "update_log": {
+      "name": "سجل التحديث",
+      "description": "يعيد مخرجات آخر تحديث نُفّذ على الحاسوب.",
+      "fields": {
+        "config_entry_id": {
+          "name": "الحاسوب",
+          "description": "الحاسوب المراد قراءة سجله."
+        },
+        "lines": {
+          "name": "الأسطر",
+          "description": "عدد الأسطر من نهاية المخرجات."
+        }
+      }
+    },
+    "run_command": {
+      "name": "تشغيل أمر مخصص",
+      "description": "يشغّل أحد الأوامر المخصصة المعرّفة في خيارات الحاسوب ويعيد مخرجاته. للمديرين فقط.",
+      "fields": {
+        "config_entry_id": {
+          "name": "الحاسوب",
+          "description": "الحاسوب المراد تشغيل الأمر عليه."
+        },
+        "command": {
+          "name": "الأمر",
+          "description": "اسم الأمر كما هو مكتوب في الخيارات."
+        }
+      }
+    },
+    "use_shared_key": {
+      "name": "استخدام مفتاح SSH المشترك",
+      "description": "يصرّح للمفتاح المشترك لـ Home Assistant ‏(/config/.ssh/gnulinux_computer) على الحاسوب ببيانات الاعتماد الحالية، ويتحقق من أنه يعمل ثم ينتقل إليه. دون تحديد حاسوب يُنفَّذ على الجميع. للمديرين فقط.",
+      "fields": {
+        "config_entry_id": {
+          "name": "الحاسوب",
+          "description": "اتركه فارغًا لكل الحواسيب."
+        },
+        "remove_old_key": {
+          "name": "حذف المفتاح القديم",
+          "description": "يحذف من الحاسوب المفتاح الخاص به الذي ولّده هذا التكامل سابقًا."
+        }
+      }
+    }
+  }
+}

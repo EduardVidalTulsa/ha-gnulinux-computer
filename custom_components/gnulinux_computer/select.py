@@ -7,14 +7,15 @@ from __future__ import annotations
 import asyncio
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import GLConfigEntry
 from .const import POWER_OFF, POWER_ON, POWER_OPTIONS, POWER_REBOOT, allowed_power_options
-from .coordinator import StatusCoordinator
+from .coordinator import StatusCoordinator, UpdatesCoordinator
 from .entity import GLEntity
 
 
@@ -22,7 +23,61 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: GLConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:
     """Set up the power select."""
-    async_add_entities([PowerSelect(entry, entry.runtime_data)])
+    rt = entry.runtime_data
+    async_add_entities([PowerSelect(entry, rt)])
+    added = False
+
+    @callback
+    def add_esim() -> None:
+        # Only computers with an eSIM (lpac lists its profiles) get the select.
+        nonlocal added
+        if not added and rt.updates.data is not None and rt.updates.data.esim:
+            added = True
+            async_add_entities([EsimSelect(entry, rt)])
+
+    add_esim()
+    entry.async_on_unload(rt.updates.async_add_listener(add_esim))
+
+
+class EsimSelect(GLEntity, CoordinatorEntity[UpdatesCoordinator], SelectEntity):
+    """Active eSIM profile; choosing another one enables it (lpac)."""
+
+    _attr_translation_key = "esim_profile"
+
+    def __init__(self, entry: GLConfigEntry, rt) -> None:
+        """Initialize."""
+        GLEntity.__init__(self, entry, rt, "esim_profile")
+        CoordinatorEntity.__init__(self, rt.updates)
+
+    @property
+    def _profiles(self):
+        data = self.coordinator.data
+        return (data.esim if data else None) or []
+
+    @property
+    def options(self) -> list[str]:
+        """Profiles stored in the eSIM."""
+        return [p.label for p in self._profiles]
+
+    @property
+    def current_option(self) -> str | None:
+        """The enabled profile."""
+        return next((p.label for p in self._profiles if p.enabled), None)
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        """Details of the enabled profile."""
+        if (cur := next((p for p in self._profiles if p.enabled), None)) is None:
+            return None
+        return {"iccid": cur.iccid, "provider": cur.provider}
+
+    async def async_select_option(self, option: str) -> None:
+        """Enable another profile."""
+        profile = next((p for p in self._profiles if p.label == option), None)
+        if profile is None:
+            raise HomeAssistantError(f"Perfil eSIM desconegut: {option}")
+        if not profile.enabled:
+            await self.coordinator.async_esim_enable(profile.iccid)
 
 
 class PowerSelect(GLEntity, CoordinatorEntity[StatusCoordinator], SelectEntity, RestoreEntity):

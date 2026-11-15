@@ -5,17 +5,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import ipaddress
 import json
 import re
 import shlex
 import xml.etree.ElementTree as ET
 
 from .const import (
+    BACKEND_APK,
     BACKEND_APT,
     BACKEND_AUR,
     BACKEND_DNF,
     BACKEND_FIRMWARE,
     BACKEND_FLATPAK,
+    BACKEND_OSTREE,
     BACKEND_PACMAN,
     BACKEND_SNAP,
     BACKEND_ZYPPER,
@@ -109,8 +112,9 @@ echo "@uptime"; cut -d' ' -f1 /proc/uptime
 echo "@load"; cut -d' ' -f1-3 /proc/loadavg
 echo "@mem"; grep -E '^(MemTotal|MemAvailable):' /proc/meminfo
 echo "@volumes"
-timeout 10 df -PT -x tmpfs -x devtmpfs -x overlay -x squashfs -x efivarfs -x ramfs -x nsfs \
-  -x fuse.portal -x fuse.gvfsd-fuse -x fuse.snapfuse -x autofs 2>/dev/null | tail -n +2
+# busybox df (Alpine) has no -x: then list everything, the parser filters
+{ timeout 10 df -PT -x tmpfs -x devtmpfs -x overlay -x squashfs -x efivarfs -x ramfs -x nsfs \
+  -x fuse.portal -x fuse.gvfsd-fuse -x fuse.snapfuse -x autofs 2>/dev/null || timeout 10 df -PT 2>/dev/null; } | tail -n +2
 echo "@kernel"; uname -r
 echo "@gpu"
 command -v nvidia-smi >/dev/null 2>&1 && timeout 5 nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits 2>/dev/null | sed 's/^/nvidia /'
@@ -137,6 +141,29 @@ if [ -n "$GLC_SLOW" ] && ls -d /sys/class/powercap/*-rapl:* >/dev/null 2>&1; the
   echo "@rapl"
   $SUDO sh -c 'for z in /sys/class/powercap/intel-rapl:[0-9]* /sys/class/powercap/amd-rapl:[0-9]*; do [ -r "$z/energy_uj" ] || continue; case "${z##*/}" in *:*:*) continue;; esac; echo "$(cat "$z/name") $(cat "$z/energy_uj") $(cat "$z/max_energy_range_uj") $(date +%s%N)"; done' 2>/dev/null
 fi
+echo "@ip"
+defdev=$(ip route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')
+echo "default $defdev"
+ip -o addr show scope global 2>/dev/null | awk '$3=="inet" || $3=="inet6" {print $2, $4}'
+if [ -n "$GLC_SLOW" ] && [ -n "$GLC_PUBLIC_IP" ]; then
+  # Public address as seen from the Internet (asks api.ipify.org / icanhazip.com)
+  pub() {
+    if command -v curl >/dev/null 2>&1; then curl "-$1" -fsS --max-time 6 "$2" 2>/dev/null
+    elif command -v wget >/dev/null 2>&1; then timeout 8 wget "-$1" -qO- "$2" 2>/dev/null; fi
+  }
+  echo "@public_ip"
+  echo "4 $(pub 4 https://api.ipify.org || pub 4 https://ipv4.icanhazip.com)"
+  echo "6 $(pub 6 https://api6.ipify.org || pub 6 https://ipv6.icanhazip.com)"
+fi
+if [ -n "$GLC_SLOW" ]; then
+  # Position, when the computer has a GNSS receiver: gpsd or ModemManager
+  if command -v gpspipe >/dev/null 2>&1; then
+    echo "@gpsd"; timeout 8 gpspipe -w -n 12 2>/dev/null | grep -m 1 '"class":"TPV".*"lat"'
+  fi
+  if command -v mmcli >/dev/null 2>&1; then
+    echo "@mmloc"; timeout 8 mmcli -m any --location-get -K 2>/dev/null | grep -E 'gps\.(latitude|longitude|altitude)'
+  fi
+fi
 echo "@reboot"
 k=$(uname -r)
 if [ -d /usr/lib/modules ] && [ ! -d "/usr/lib/modules/$k" ] && [ ! -d "/lib/modules/$k" ]; then
@@ -152,7 +179,15 @@ done
 [ -f /run/reboot-needed ] && echo "reboot-needed"
 if command -v needs-restarting >/dev/null 2>&1; then
   needs-restarting -r >/dev/null 2>&1; [ $? -eq 1 ] && echo "needs-restarting"
+elif command -v dnf5 >/dev/null 2>&1; then
+  # dnf5 (Fedora 41+, RHEL 11) has it built in
+  dnf5 needs-restarting -r >/dev/null 2>&1; [ $? -eq 1 ] && echo "needs-restarting"
 fi
+if [ -e /run/ostree-booted ] && command -v rpm-ostree >/dev/null 2>&1; then
+  # Atomic desktops / CoreOS / image mode: a new deployment waits for a reboot
+  rpm-ostree status --pending-exit-77 >/dev/null 2>&1; [ $? -eq 77 ] && echo "ostree: pending deployment"
+fi
+set -f
 if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
   echo "@init"; echo systemd
   echo "@state"; systemctl is-system-running 2>/dev/null
@@ -160,12 +195,26 @@ if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
   echo "@svc_running"; systemctl list-units --type=service --state=running --no-legend --no-pager --plain 2>/dev/null | awk '{print $1}'
   echo "@svc_files"; systemctl list-unit-files --type=service --no-legend --no-pager --plain 2>/dev/null | awk '{print $1" "$2}'
   echo "@units"
-  [ -n "$UNITS" ] && systemctl show --no-pager -p Id,LoadState,ActiveState,SubState,Description,UnitFileState $UNITS 2>/dev/null
+  [ -n "$UNITS" ] && systemctl show --no-pager -p Id,LoadState,ActiveState,SubState,Description,UnitFileState -- $UNITS 2>/dev/null
+elif command -v rc-service >/dev/null 2>&1; then
+  # OpenRC (Alpine, Gentoo, Artix...)
+  echo "@init"; echo openrc
+  echo "@state"; rc-status -r 2>/dev/null
+  echo "@failed"; rc-status -c 2>/dev/null | awk '$2=="[" {print $1}'
+  echo "@svc_running"; rc-status -a 2>/dev/null | awk '$2=="[" && $3=="started" {print $1}' | sort -u
+  echo "@svc_files"
+  en=$(rc-update show 2>/dev/null | awk '{print $1}' | sort -u)
+  for s in $(rc-service -l 2>/dev/null); do
+    case " $(echo $en) " in *" $s "*) echo "$s enabled";; *) echo "$s disabled";; esac
+  done
+  echo "@sysv"
+  for u in $UNITS; do rc-service -- "$u" status >/dev/null 2>&1; echo "$u $?"; done
 else
   echo "@init"; echo sysv
   echo "@sysv"
   for u in $UNITS; do service "$u" status >/dev/null 2>&1; echo "$u $?"; done
 fi
+set +f
 echo "@end"
 """
 
@@ -204,6 +253,11 @@ class Volume:
 
 _PREFERRED_MOUNTS = ("/", "/home")
 _SKIP_MOUNT_PREFIXES = ("/proc", "/sys", "/dev", "/run", "/snap/", "/var/lib/docker", "/var/lib/containers")
+_SKIP_FSTYPES = frozenset(
+    "tmpfs devtmpfs overlay squashfs efivarfs ramfs nsfs fuse.portal fuse.gvfsd-fuse "
+    "fuse.snapfuse autofs proc sysfs devpts cgroup cgroup2 mqueue debugfs tracefs "
+    "securityfs pstore bpf configfs fusectl hugetlbfs binfmt_misc rootfs".split()
+)
 
 
 def _mount_rank(mount: str) -> int:
@@ -220,7 +274,7 @@ def parse_volumes(lines: list[str]) -> list[Volume]:
         if len(parts) < 7:
             continue
         device, fstype, size, used, avail, _cap, mount = parts
-        if mount.startswith(_SKIP_MOUNT_PREFIXES) and mount != "/":
+        if (mount.startswith(_SKIP_MOUNT_PREFIXES) and mount != "/") or fstype in _SKIP_FSTYPES:
             continue
         try:
             vol = Volume(mount, device, fstype, int(size) * 1024, int(used) * 1024, int(avail) * 1024)
@@ -259,6 +313,10 @@ class StatusData:
     services_enabled: list[str] | None = None
     services_disabled: list[str] | None = None
     sections: dict[str, list[str]] = field(default_factory=dict, repr=False)
+    location: Location | None = None  # only read on slow polls
+    addresses: dict[str, list[str]] = field(default_factory=dict)  # interface -> IPs
+    primary_ip: str | None = None
+    public_ip: dict[str, str] | None = None  # {"ipv4": ..., "ipv6": ...}; slow polls
 
     @property
     def mem_used_pct(self) -> float | None:
@@ -268,9 +326,11 @@ class StatusData:
         return round(100 * (self.mem_total - self.mem_available) / self.mem_total, 1)
 
 
-def status_script(units: list[str], slow: bool = False) -> str:
+def status_script(units: list[str], slow: bool = False, public_ip: bool = False) -> str:
     """Build the status script. Slow polls also run the readings that need sudo."""
     flag = "GLC_SLOW=1\n" if slow else ""
+    if public_ip:
+        flag += "GLC_PUBLIC_IP=1\n"
     return f"UNITS={shlex.quote(' '.join(units))}\n{flag}" + STATUS_SCRIPT
 
 
@@ -352,7 +412,88 @@ def parse_status(text: str, units: list[str]) -> StatusData:
         services_enabled=enabled,
         services_disabled=disabled,
         sections={k: v for k, v in sec.items() if k in ("gpu", "battery", "pmic", "rapl")},
+        location=parse_location(sec),
+        **_parse_addresses(sec),
     )
+
+
+def _is_ip(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _parse_addresses(sec: dict[str, list[str]]) -> dict:
+    """Addresses per interface, the one of the default route, and the public ones."""
+    addresses: dict[str, list[str]] = {}
+    default = None
+    for line in sec.get("ip", []):
+        name, _, value = line.strip().partition(" ")
+        if name == "default":
+            default = value.strip() or None
+            continue
+        addr = value.split("/")[0]
+        if _is_ip(addr):
+            addresses.setdefault(name, []).append(addr)
+    candidates = addresses.get(default or "", []) or [a for v in addresses.values() for a in v]
+    primary = next((a for a in candidates if ":" not in a), candidates[0] if candidates else None)
+    public = None
+    if "public_ip" in sec:
+        public = {}
+        for line in sec["public_ip"]:
+            family, _, value = line.strip().partition(" ")
+            if family in ("4", "6") and _is_ip(value.strip()):
+                public[f"ipv{family}"] = value.strip()
+    return {"addresses": addresses, "primary_ip": primary, "public_ip": public}
+
+
+@dataclass
+class Location:
+    """A GNSS fix."""
+
+    latitude: float
+    longitude: float
+    altitude: float | None = None
+    accuracy: float | None = None  # metres
+    source: str = "gpsd"
+
+
+def _coord(value: object) -> float | None:
+    try:
+        return float(str(value).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def parse_location(sec: dict[str, list[str]]) -> Location | None:
+    """Position from gpsd (TPV report) or ModemManager (mmcli -K)."""
+    for line in sec.get("gpsd", []):
+        try:
+            tpv = json.loads(line)
+        except ValueError:
+            continue
+        lat, lon = _coord(tpv.get("lat")), _coord(tpv.get("lon"))
+        if lat is None or lon is None or int(tpv.get("mode", 0) or 0) < 2:
+            continue
+        errors = [e for e in (_coord(tpv.get("epx")), _coord(tpv.get("epy"))) if e is not None]
+        alt = tpv.get("altMSL", tpv.get("alt"))
+        return Location(
+            lat,
+            lon,
+            _coord(alt) if alt is not None else None,
+            _coord(tpv["eph"]) if "eph" in tpv else (max(errors) if errors else None),
+            "gpsd",
+        )
+    mm: dict[str, float | None] = {}
+    for line in sec.get("mmloc", []):
+        key, _, value = line.partition(":")
+        mm[key.strip().rsplit(".", 1)[-1]] = _coord(value.strip())
+    lat, lon = mm.get("latitude"), mm.get("longitude")
+    if lat is not None and lon is not None and -90 <= lat <= 90 and -180 <= lon <= 180:
+        return Location(lat, lon, mm.get("altitude"), None, "modemmanager")
+    return None
 
 
 LIST_UNITS_SCRIPT = r"""
@@ -360,10 +501,16 @@ if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
   systemctl list-unit-files --type=service --no-legend --no-pager --plain 2>/dev/null \
     | awk '$2=="enabled" || $2=="static" || $2=="alias" || $2=="disabled" {print $1}' | grep -v '@\.service$'
   systemctl list-units --type=service --all --no-legend --no-pager --plain 2>/dev/null | awk '{print $1}'
+elif command -v rc-service >/dev/null 2>&1; then
+  rc-service -l 2>/dev/null
 else
   ls /etc/init.d 2>/dev/null
 fi
 """
+
+
+# Service names never need anything else; a leading "-" would be an option.
+UNIT_NAME_RE = re.compile(r"^[A-Za-z0-9_@][A-Za-z0-9_@.:\\+-]*$")
 
 
 def parse_unit_list(text: str) -> list[str]:
@@ -373,8 +520,12 @@ def parse_unit_list(text: str) -> list[str]:
 
 def unit_command(init: str, unit: str, command: str) -> str:
     """Build a command to control a service."""
+    if not UNIT_NAME_RE.match(unit):
+        raise ValueError(f"Invalid service name: {unit!r}")
     if init == "systemd":
         return f"$SUDO systemctl {command} -- {shlex.quote(unit)}"
+    if init == "openrc" and command not in ("enable", "disable"):
+        return f"$SUDO rc-service -- {shlex.quote(unit)} {command}"
     if command in ("enable", "disable"):
         return (
             f"if command -v rc-update >/dev/null; then $SUDO rc-update "
@@ -430,7 +581,7 @@ if [ -z "$WAYLAND_DISPLAY" ] && [ -z "$DISPLAY" ]; then
   WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR" 2>/dev/null | grep -m1 -E '^wayland-[0-9]+$')
   [ -n "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY || export DISPLAY=:0
 fi
-f=$(mktemp --suffix=.png)
+f=$(mktemp --suffix=.png 2>/dev/null) || f=$(mktemp)
 trap 'rm -f "$f"' EXIT
 ok=""
 desk=$(printf '%s' "$XDG_CURRENT_DESKTOP" | tr 'A-Z' 'a-z')
@@ -494,12 +645,17 @@ class BackendResult:
 
 
 DETECT_SCRIPT = r"""
-for c in pacman checkupdates yay paru dnf zypper apt-get flatpak snap fwupdmgr; do
+for c in pacman checkupdates yay paru dnf5 dnf yum microdnf rpm-ostree bootc zypper apt-get apk flatpak snap fwupdmgr; do
   command -v "$c" >/dev/null 2>&1 && echo "$c"
 done
+# Image-based systems (Fedora Atomic/Silverblue/CoreOS, RHEL image mode)
+[ -e /run/ostree-booted ] && echo "@ostree-booted"
+exit 0
 """
 
 _ARROW_RE = re.compile(r"^(\S+)\s+(\S+)\s+->\s+(\S+)")
+# "busybox-1.36.1-r15 < 1.36.1-r20" (apk version -v -l '<')
+_APK_RE = re.compile(r"^(\S+?)-(\d[^\s-]*(?:-r\d+)?)\s+<\s+(\S+)")
 
 
 def detect_backends(text: str, is_root: bool) -> dict[str, str]:
@@ -513,12 +669,19 @@ def detect_backends(text: str, is_root: bool) -> dict[str, str]:
             found[BACKEND_AUR] = "yay"
         elif "paru" in tools:
             found[BACKEND_AUR] = "paru"
-    if "dnf" in tools:
-        found[BACKEND_DNF] = "dnf"
+    if "@ostree-booted" in tools and ("rpm-ostree" in tools or "bootc" in tools):
+        # The system is an image: dnf/yum cannot upgrade it.
+        found[BACKEND_OSTREE] = "rpm-ostree" if "rpm-ostree" in tools else "bootc"
+    elif rpm := next((t for t in ("dnf5", "dnf", "yum", "microdnf") if t in tools), None):
+        # dnf5 (Fedora 41+), dnf (Fedora 22+/RHEL 8+), yum (RHEL/CentOS <= 7),
+        # microdnf (minimal images; it cannot list updates, only install them)
+        found[BACKEND_DNF] = rpm
     elif "zypper" in tools:
         found[BACKEND_ZYPPER] = "zypper"
     if "apt-get" in tools:
         found[BACKEND_APT] = "apt"
+    if "apk" in tools:
+        found[BACKEND_APK] = "apk"
     if "flatpak" in tools:
         found[BACKEND_FLATPAK] = "flatpak"
     if "snap" in tools:
@@ -533,9 +696,22 @@ def check_script(backend: str, tool: str) -> str:
     return {
         BACKEND_PACMAN: 'checkupdates --nocolor; rc=$?; [ $rc -eq 2 ] && exit 0; exit $rc',
         BACKEND_AUR: f"{tool} -Qua 2>/dev/null; exit 0",
-        BACKEND_DNF: 'dnf -q check-update 2>/dev/null; rc=$?; [ $rc -eq 100 ] && exit 0; exit $rc',
+        BACKEND_DNF: (
+            "exit 0"
+            if tool == "microdnf"
+            else f"{tool} -q check-update 2>/dev/null; rc=$?; [ $rc -eq 100 ] && exit 0; exit $rc"
+        ),
+        BACKEND_OSTREE: (
+            "$SUDO bootc upgrade --check 2>&1"
+            if tool == "bootc"
+            else "rpm-ostree upgrade --check 2>&1; rc=$?; [ $rc -eq 77 ] && exit 0; exit $rc"
+        ),
+        BACKEND_APK: "$SUDO apk update -q >/dev/null 2>&1; apk version -v -l '<' 2>/dev/null; exit 0",
         BACKEND_ZYPPER: "$SUDO zypper --non-interactive --quiet --xmlout list-updates",
-        BACKEND_APT: "$SUDO apt-get update -qq >/dev/null 2>&1; apt list --upgradable 2>/dev/null",
+        BACKEND_APT: (
+            "$SUDO apt-get -o DPkg::Lock::Timeout=60 update -qq >/dev/null 2>&1; "
+            "apt list --upgradable 2>/dev/null"
+        ),
         BACKEND_FLATPAK: (
             "echo @updates; flatpak remote-ls --updates --columns=application,version,branch 2>/dev/null;"
             " echo @installed; flatpak list --columns=application,version,branch 2>/dev/null; exit 0"
@@ -559,10 +735,14 @@ def install_script(backend: str, tool: str) -> str:
             f'{tool} -Sua --noconfirm --sudoflags="$SUDOFLAGS" --removemake'
             + (" --answerdiff None --answerclean None" if tool == "yay" else "")
         ),
-        BACKEND_DNF: "$SUDO dnf -y upgrade",
+        BACKEND_DNF: f"$SUDO {tool} -y {'update' if tool == 'yum' else 'upgrade'}",
+        # Stages a new deployment; it becomes active on the next reboot.
+        BACKEND_OSTREE: "$SUDO bootc upgrade" if tool == "bootc" else "$SUDO rpm-ostree upgrade",
+        BACKEND_APK: "$SUDO apk upgrade --update-cache --no-progress",
         BACKEND_ZYPPER: "$SUDO zypper --non-interactive update",
         BACKEND_APT: (
-            "$SUDO env DEBIAN_FRONTEND=noninteractive apt-get -y "
+            "$SUDO apt-get -o DPkg::Lock::Timeout=300 update -qq; "
+            "$SUDO env DEBIAN_FRONTEND=noninteractive apt-get -y -o DPkg::Lock::Timeout=300 "
             "-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold full-upgrade"
         ),
         BACKEND_FLATPAK: (
@@ -582,12 +762,39 @@ def parse_check(backend: str, text: str) -> list[Package]:
             if m := _ARROW_RE.match(line.strip()):
                 pkgs.append(Package(m[1], m[2], m[3]))
     elif backend == BACKEND_DNF:
+        seen: set[str] = set()
         for line in text.splitlines():
+            if line.startswith("Obsoleting"):
+                break  # what follows are replaced packages, not updates
             parts = line.split()
-            if line.startswith(("Obsoleting", "Security:", "Last metadata")) or len(parts) != 3:
+            if len(parts) != 3 or "." not in parts[0] or line.startswith(("Security:", "Last metadata")):
                 continue
             name = parts[0].rsplit(".", 1)[0]
-            pkgs.append(Package(name, None, parts[1]))
+            if name not in seen:
+                seen.add(name)
+                pkgs.append(Package(name, None, parts[1]))
+    elif backend == BACKEND_OSTREE:
+        # rpm-ostree: "AvailableUpdate:" block with Version/Commit/Diff lines.
+        # bootc: "Update available for: <image>" (+ "Version: ...").
+        info: dict[str, str] = {}
+        for line in text.splitlines():
+            key, sep, value = line.strip().partition(":")
+            if sep and value.strip():
+                info.setdefault(key.strip().lower(), value.strip())
+        if "availableupdate" in text.lower().replace(" ", "") or "update available for" in info:
+            new = (
+                info.get("version", "").split(" ")[0]
+                or info.get("commit", "")[:12]
+                or info.get("digest", "")[-12:]
+            )
+            name = "system image"
+            if diff := info.get("diff"):
+                name += f" ({diff})"
+            pkgs.append(Package(name, None, new or "new"))
+    elif backend == BACKEND_APK:
+        for line in text.splitlines():
+            if m := _APK_RE.match(line.strip()):
+                pkgs.append(Package(m[1], m[2], m[3]))
     elif backend == BACKEND_ZYPPER:
         start = text.find("<")
         if start >= 0:
@@ -654,14 +861,16 @@ TAB=$(printf '\t')
 FMT='{{json .Name}}	{{json .Config.Image}}	{{json .Image}}	{{json .State.Status}}	{{json .Config.Labels}}'
 dump() {
   # $1 = engine label, rest = command prefix
+  # Every call has a timeout: a stuck engine (stale lock) must not leave a
+  # hung process behind on each check.
   label=$1; shift
-  ids=$("$@" ps -aq 2>/dev/null) || return 0
+  ids=$(timeout 30 "$@" ps -aq 2>/dev/null) || return 0
   [ -n "$ids" ] || return 0
   echo "@engine"; echo "$label"
-  echo "@containers"; "$@" inspect --format "$FMT" $ids 2>/dev/null
-  imgs=$("$@" inspect --format '{{.Image}}' $ids 2>/dev/null | sort -u)
+  echo "@containers"; timeout 30 "$@" inspect --format "$FMT" $ids 2>/dev/null
+  imgs=$(timeout 30 "$@" inspect --format '{{.Image}}' $ids 2>/dev/null | sort -u)
   case "$label" in podman*) idf='{{json .ID}}' ;; *) idf='{{json .Id}}' ;; esac
-  echo "@images"; [ -n "$imgs" ] && "$@" image inspect --format "$idf	{{json .RepoDigests}}" $imgs 2>/dev/null
+  echo "@images"; [ -n "$imgs" ] && timeout 30 "$@" image inspect --format "$idf	{{json .RepoDigests}}" $imgs 2>/dev/null
 }
 if command -v docker >/dev/null 2>&1; then
   running=1
@@ -669,8 +878,8 @@ if command -v docker >/dev/null 2>&1; then
     systemctl is-active --quiet docker.service || running=""
   fi
   if [ -n "$running" ]; then
-    if docker info >/dev/null 2>&1; then dump "docker|docker" docker
-    elif $SUDO docker info >/dev/null 2>&1; then dump "docker|\$SUDO docker" $SUDO docker
+    if timeout 20 docker info >/dev/null 2>&1; then dump "docker|docker" docker
+    elif timeout 20 $SUDO docker info >/dev/null 2>&1; then dump "docker|\$SUDO docker" $SUDO docker
     fi
   fi
 fi
@@ -740,8 +949,8 @@ class Container:
         if unit := lbl.get("PODMAN_SYSTEMD_UNIT"):
             ctl = "systemctl --user" if self.engine == "podman-user" else "$SUDO systemctl"
             return (
-                f"{self.command} pull {shlex.quote(self.image)} && "
-                f"{ctl} restart {shlex.quote(unit)}"
+                f"{self.command} pull -- {shlex.quote(self.image)} && "
+                f"{ctl} restart -- {shlex.quote(unit)}"
             )
         return None
 
@@ -836,10 +1045,19 @@ exit 3
 """
 
 
+_MAC_RE = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$")
+_IFACE_RE = re.compile(r"^[A-Za-z0-9_.:@ +-]{1,64}$")
+
+
 def routeros_wol_command(mac: str, interface: str | None) -> str:
     """RouterOS command that sends a magic packet."""
+    if not _MAC_RE.match(mac):
+        raise ValueError(f"Invalid MAC address: {mac!r}")
     cmd = f"/tool wol mac={mac.upper()}"
     if interface:
+        # No quotes, ";" or newlines: they would start another RouterOS command.
+        if not _IFACE_RE.match(interface):
+            raise ValueError(f"Invalid interface name: {interface!r}")
         cmd += f' interface="{interface}"'
     return cmd
 
@@ -974,3 +1192,95 @@ def parse_job_status(text: str) -> JobState:
         state, rc, log, job=meta.get("job") or None,
         started=_int(meta.get("started")), finished=_int(meta.get("finished")),
     )
+
+
+# --------------------------------------------------------------------------
+# eSIM profiles (lpac, https://github.com/estkme-group/lpac)
+
+# lpac is configured through LPAC_* environment variables (which modem and
+# how to talk to it); they can be put in /etc/default/lpac.
+_LPAC = r"""
+command -v lpac >/dev/null 2>&1 || exit 0
+if [ -r /etc/default/lpac ]; then set -a; . /etc/default/lpac; set +a; fi
+lp() {
+  if out=$(timeout 60 lpac "$@" 2>/dev/null); then printf '%s\n' "$out"
+  else $SUDO env $(env | grep '^LPAC_') timeout 60 lpac "$@" 2>/dev/null; fi
+}
+"""
+
+ESIM_LIST_SCRIPT = _LPAC + 'echo "@profiles"; lp profile list\necho "@end"\n'
+
+_ICCID_RE = re.compile(r"^[0-9A-Fa-f]{18,22}$")
+
+
+@dataclass
+class EsimProfile:
+    """An eSIM profile stored in the eUICC."""
+
+    iccid: str
+    name: str
+    enabled: bool
+    provider: str | None = None
+
+    @property
+    def label(self) -> str:
+        """Name shown in Home Assistant (unique thanks to the ICCID tail)."""
+        return f"{self.name} (…{self.iccid[-4:]})"
+
+
+def esim_enable_script(iccid: str) -> str:
+    """Enable a profile; the modem then registers with that operator."""
+    if not _ICCID_RE.match(iccid):
+        raise ValueError(f"Invalid ICCID: {iccid!r}")
+    return _LPAC + f"lp profile enable {iccid}\n"
+
+
+def _lpac_payload(text: str) -> dict | None:
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            payload = json.loads(line).get("payload")
+        except (ValueError, AttributeError):
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
+def lpac_ok(text: str) -> tuple[bool, str]:
+    """Whether an lpac command succeeded, and its message."""
+    payload = _lpac_payload(text)
+    if payload is None:
+        return False, text.strip()[-300:]
+    data = payload.get("data")
+    detail = data if isinstance(data, str) and data else payload.get("message", "")
+    return payload.get("code") == 0, str(detail)
+
+
+def parse_esim_profiles(text: str) -> list[EsimProfile] | None:
+    """Parse `lpac profile list`. None when there is no usable eSIM."""
+    payload = _lpac_payload(text.partition("@profiles")[2])
+    if payload is None or payload.get("code") != 0 or not isinstance(payload.get("data"), list):
+        return None
+    profiles = []
+    for item in payload["data"]:
+        iccid = str(item.get("iccid") or "")
+        if not _ICCID_RE.match(iccid):
+            continue
+        name = (
+            item.get("profileNickname")
+            or item.get("profileName")
+            or item.get("serviceProviderName")
+            or iccid
+        )
+        profiles.append(
+            EsimProfile(
+                iccid=iccid,
+                name=str(name),
+                enabled=str(item.get("profileState", "")).lower() in ("enabled", "1"),
+                provider=item.get("serviceProviderName") or None,
+            )
+        )
+    return profiles

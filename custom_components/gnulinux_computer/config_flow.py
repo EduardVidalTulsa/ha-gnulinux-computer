@@ -4,21 +4,27 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import logging
-import os
 import re
 from typing import Any
 
 import asyncssh
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    SOURCE_REAUTH,
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 
-from .client import CannotConnect, LinuxClient, fetch_host_key, load_private_key
+from .client import AuthFailed, CannotConnect, LinuxClient, fetch_host_key, load_private_key
 from .const import (
     AUTH_GENERATE,
     AUTH_KEY_FILE,
@@ -28,6 +34,7 @@ from .const import (
     CONF_ALLOW_SUSPEND,
     CONF_AUTH_METHOD,
     CONF_BROADCAST,
+    CONF_COMMANDS,
     CONF_HOST_KEY,
     CONF_HOSTNAME,
     CONF_KEY_PATH,
@@ -37,6 +44,7 @@ from .const import (
     CONF_MODEL,
     CONF_NOTIFY,
     CONF_OS_NAME,
+    CONF_PUBLIC_IP,
     CONF_STATUS_INTERVAL,
     CONF_SUDO_PASSWORD,
     CONF_UNITS,
@@ -47,28 +55,65 @@ from .const import (
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     KEY_DIR,
+    SHARED_KEY_PATH,
     CONF_WOL_HA_MIKROTIK_ENTRY,
     CONF_WOL_METHOD,
+    CONF_WOL_RELAY_ENTRY,
+    CONF_WOL_ROUTER_HOST,
+    CONF_WOL_ROUTER_HOST_KEY,
+    CONF_WOL_ROUTER_INTERFACE,
+    CONF_WOL_ROUTER_KEY,
+    CONF_WOL_ROUTER_PASSWORD,
+    CONF_WOL_ROUTER_PORT,
+    CONF_WOL_ROUTER_USER,
+    WOL_COMPUTER,
+    WOL_HA_MIKROTIK,
+    WOL_LOCAL,
+    WOL_MIKROTIK,
 )
+from .keys import generate_key as _generate_key
 from .wake import router_client
-from .remote import IDENTIFY_SCRIPT, LIST_UNITS_SCRIPT, parse_identity, parse_unit_list
+from .remote import (
+    IDENTIFY_SCRIPT,
+    LIST_UNITS_SCRIPT,
+    UNIT_NAME_RE,
+    parse_identity,
+    parse_unit_list,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 _MAC_RE = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$")
 
 
-def _generate_key(path: str, comment: str) -> str:
-    """Create an ed25519 key pair (blocking). Return the public key."""
-    if os.path.exists(path):
-        key = asyncssh.read_private_key(path)
-    else:
-        os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
-        key = asyncssh.generate_private_key("ssh-ed25519", comment=comment)
-        key.write_private_key(path)
-        os.chmod(path, 0o600)
-        key.write_public_key(path + ".pub")
-    return key.export_public_key().decode().strip()
+_COMMAND_NAME_RE = re.compile(r"^\w[\w .+-]{0,39}$")
+
+
+def parse_commands(text: str) -> dict[str, str]:
+    """Parse the custom commands text: one 'Name = shell command' per line."""
+    commands: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        name, sep, command = line.partition("=")
+        name, command = name.strip(), command.strip()
+        if not sep or not command or not _COMMAND_NAME_RE.match(name) or name in commands:
+            raise ValueError(line)
+        commands[name] = command
+    return commands
+
+
+def format_commands(commands: Mapping[str, str] | None) -> str:
+    """Inverse of parse_commands."""
+    return "\n".join(f"{name} = {command}" for name, command in (commands or {}).items())
+
+
+def _fingerprint(host_key: str | None) -> str:
+    try:
+        return asyncssh.import_public_key(host_key).get_fingerprint() if host_key else "—"
+    except (ValueError, asyncssh.KeyImportError):
+        return "—"
 
 
 class GLConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -176,11 +221,10 @@ class GLConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         host = self._data[CONF_HOST]
         user = self._data[CONF_USERNAME]
-        path = f"{KEY_DIR}/gnulinux_{re.sub(r'[^A-Za-z0-9._-]', '_', host)}_{user}"
+        # The same key pair for every computer: one credential to revoke.
+        path = SHARED_KEY_PATH
         if not self._pubkey:
-            self._pubkey = await self.hass.async_add_executor_job(
-                _generate_key, path, f"home-assistant@{DOMAIN}"
-            )
+            self._pubkey = await self.hass.async_add_executor_job(_generate_key)
         if user_input is not None:
             self._data[CONF_KEY_PATH] = path
             self._data[CONF_SUDO_PASSWORD] = user_input.get(CONF_SUDO_PASSWORD, "")
@@ -211,7 +255,7 @@ class GLConfigFlow(ConfigFlow, domain=DOMAIN):
             key = await self.hass.async_add_executor_job(load_private_key, self._data[CONF_KEY_PATH])
         return LinuxClient(
             self._data[CONF_HOST],
-            self._data[CONF_PORT],
+            self._data.get(CONF_PORT, DEFAULT_PORT),
             self._data[CONF_USERNAME],
             password=self._data.get(CONF_PASSWORD) or None,
             private_key=key,
@@ -228,6 +272,8 @@ class GLConfigFlow(ConfigFlow, domain=DOMAIN):
             if not await client.detect_sudo():
                 return {"base": "no_sudo"}
             res = await client.run(IDENTIFY_SCRIPT, timeout=30)
+        except AuthFailed:
+            return {"base": "invalid_auth"}
         except CannotConnect as err:
             _LOGGER.debug("Validation failed: %s", err)
             msg = str(err).lower()
@@ -250,10 +296,110 @@ class GLConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
         await self.async_set_unique_id(ident.machine_id)
+        if self.source == SOURCE_REAUTH:
+            self._abort_if_unique_id_mismatch(reason="wrong_computer")
+            return {}
         self._abort_if_unique_id_configured(
             updates={k: v for k, v in self._data.items() if not k.startswith("_")}
         )
         return {}
+
+    # ------------------------------------------------------------- reauth
+    # Started by Home Assistant when the computer rejects the stored
+    # credentials (password changed, key removed) or its host key changed.
+
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
+        """The stored credentials no longer work."""
+        self._data = dict(entry_data)
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask for the new password or key."""
+        entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+        old_host_key = entry.data.get(CONF_HOST_KEY)
+        new_host_key: str | None = None
+        try:
+            new_host_key = await fetch_host_key(
+                entry.data[CONF_HOST], entry.data.get(CONF_PORT, DEFAULT_PORT)
+            )
+        except CannotConnect:
+            if user_input is not None:
+                errors["base"] = "cannot_connect"
+        if not self._pubkey:
+            self._pubkey = await self.hass.async_add_executor_job(_generate_key)
+
+        if user_input is not None and not errors:
+            data = dict(entry.data)
+            method = user_input[CONF_AUTH_METHOD]
+            data[CONF_AUTH_METHOD] = method
+            # Submitting accepts the host key whose fingerprint is shown.
+            data[CONF_HOST_KEY] = new_host_key
+            if user_input.get(CONF_SUDO_PASSWORD):
+                data[CONF_SUDO_PASSWORD] = user_input[CONF_SUDO_PASSWORD]
+            if method == AUTH_PASSWORD:
+                data[CONF_PASSWORD] = user_input.get(CONF_PASSWORD, "")
+                data.pop(CONF_KEY_PATH, None)
+                if not data[CONF_PASSWORD]:
+                    errors["base"] = "invalid_auth"
+            else:
+                data.pop(CONF_PASSWORD, None)
+                data[CONF_KEY_PATH] = (
+                    SHARED_KEY_PATH
+                    if method == AUTH_GENERATE
+                    else user_input.get(CONF_KEY_PATH) or data.get(CONF_KEY_PATH, "")
+                )
+            if not errors:
+                self._data = data
+                errors = await self._validate()
+            if not errors:
+                return self.async_update_reload_and_abort(
+                    entry, data={k: v for k, v in self._data.items() if not k.startswith("_")}
+                )
+
+        defaults = {
+            CONF_AUTH_METHOD: entry.data.get(CONF_AUTH_METHOD, AUTH_PASSWORD),
+            CONF_KEY_PATH: entry.data.get(CONF_KEY_PATH, SHARED_KEY_PATH),
+            **{k: v for k, v in (user_input or {}).items() if k not in (CONF_PASSWORD, CONF_SUDO_PASSWORD)},
+        }
+        password = selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+        )
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_AUTH_METHOD): selector.SelectSelector(
+                            selector.SelectSelectorConfig(
+                                options=[AUTH_PASSWORD, AUTH_KEY_FILE, AUTH_GENERATE],
+                                translation_key="auth_method",
+                                mode=selector.SelectSelectorMode.LIST,
+                            )
+                        ),
+                        vol.Optional(CONF_PASSWORD): password,
+                        vol.Optional(CONF_KEY_PATH): str,
+                        vol.Optional(CONF_SUDO_PASSWORD): password,
+                    }
+                ),
+                defaults,
+            ),
+            errors=errors,
+            description_placeholders={
+                "user": entry.data[CONF_USERNAME],
+                "host": entry.data[CONF_HOST],
+                "pubkey": self._pubkey,
+                "fingerprint": _fingerprint(new_host_key),
+                "host_key_status": (
+                    "?"
+                    if new_host_key is None
+                    else "=" if new_host_key == old_host_key or not old_host_key else "⚠ ≠"
+                ),
+                "old_fingerprint": _fingerprint(old_host_key),
+            },
+        )
 
     async def _create(self) -> ConfigFlowResult:
         return await self.async_step_power()
@@ -311,9 +457,17 @@ class GLOptionsFlow(OptionsFlow):
         current = self.config_entry.options
         if user_input is not None:
             mac = user_input.get(CONF_MAC, "").strip()
+            commands: dict[str, str] = {}
+            try:
+                commands = parse_commands(user_input.get(CONF_COMMANDS) or "")
+            except ValueError:
+                errors[CONF_COMMANDS] = "invalid_commands"
             if mac and not _MAC_RE.match(mac):
                 errors[CONF_MAC] = "invalid_mac"
-            else:
+            if any(not UNIT_NAME_RE.match(u) for u in user_input.get(CONF_UNITS, [])):
+                errors[CONF_UNITS] = "invalid_unit"
+            if not errors:
+                user_input = {**user_input, CONF_COMMANDS: commands}
                 user_input[CONF_MAC] = mac.lower().replace("-", ":")
                 # Keep relay settings unless the method changes away from them.
                 self._opts = {
@@ -345,7 +499,16 @@ class GLOptionsFlow(OptionsFlow):
                         options=units, multiple=True, custom_value=True, sort=True
                     )
                 ),
+                vol.Optional(
+                    CONF_COMMANDS,
+                    description={
+                        "suggested_value": (user_input or {}).get(CONF_COMMANDS)
+                        if isinstance((user_input or {}).get(CONF_COMMANDS), str)
+                        else format_commands(current.get(CONF_COMMANDS))
+                    },
+                ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
                 vol.Optional(CONF_NOTIFY, default=current.get(CONF_NOTIFY, True)): bool,
+                vol.Optional(CONF_PUBLIC_IP, default=current.get(CONF_PUBLIC_IP, True)): bool,
                 vol.Optional(
                     CONF_UPDATE_INTERVAL,
                     default=current.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
@@ -474,11 +637,10 @@ class GLOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """A MikroTik router in the computer's network sends the magic packet."""
         errors: dict[str, str] = {}
-        default_key = f"{KEY_DIR}/gnulinux_mikrotik"
+        # Routers already set up keep their key; new ones use the shared key.
+        default_key = self._opts.get(CONF_WOL_ROUTER_KEY) or SHARED_KEY_PATH
         if not self._pubkey:
-            self._pubkey = await self.hass.async_add_executor_job(
-                _generate_key, default_key, f"home-assistant@{DOMAIN}"
-            )
+            self._pubkey = await self.hass.async_add_executor_job(_generate_key, default_key)
         if user_input is not None:
             opts = {**self._opts, **user_input}
             try:

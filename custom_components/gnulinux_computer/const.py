@@ -27,12 +27,17 @@ CONF_STATUS_INTERVAL = "status_interval"
 CONF_UPDATE_INTERVAL = "update_interval"
 CONF_UNITS = "units"
 CONF_NOTIFY = "notify"
+CONF_PUBLIC_IP = "public_ip"
 
 DEFAULT_PORT = 22
 DEFAULT_BROADCAST = "255.255.255.255"
 DEFAULT_STATUS_INTERVAL = 30  # seconds
 DEFAULT_UPDATE_INTERVAL = 60  # minutes
 KEY_DIR = "/config/.ssh"
+# One key pair for every computer (and router) of the pool: if Home Assistant
+# is ever compromised, a single public key has to be removed everywhere.
+SHARED_KEY_PATH = f"{KEY_DIR}/gnulinux_computer"
+SHARED_KEY_COMMENT = f"home-assistant@{DOMAIN}"
 
 # Update backends
 BACKEND_PACMAN = "pacman"
@@ -40,6 +45,8 @@ BACKEND_AUR = "aur"
 BACKEND_DNF = "dnf"
 BACKEND_ZYPPER = "zypper"
 BACKEND_APT = "apt"
+BACKEND_APK = "apk"
+BACKEND_OSTREE = "ostree"
 BACKEND_FLATPAK = "flatpak"
 BACKEND_SNAP = "snap"
 BACKEND_FIRMWARE = "firmware"
@@ -49,6 +56,8 @@ BACKENDS = (
     BACKEND_DNF,
     BACKEND_ZYPPER,
     BACKEND_APT,
+    BACKEND_APK,
+    BACKEND_OSTREE,
     BACKEND_FLATPAK,
     BACKEND_SNAP,
     BACKEND_FIRMWARE,
@@ -64,7 +73,14 @@ POWER_OPTIONS = [POWER_ON, POWER_SUSPEND, POWER_HIBERNATE, POWER_OFF, POWER_REBO
 
 UNIT_COMMANDS = ["start", "stop", "restart", "reload", "enable", "disable"]
 
+# Custom commands: {name: shell command}, defined by an administrator in the
+# options. Only these can be run from Home Assistant (never free text).
+CONF_COMMANDS = "commands"
+COMMAND_TIMEOUT = 300  # seconds
+COMMAND_OUTPUT_MAX = 8000  # characters kept from the end of the output
+
 EVENT_UPDATES_AVAILABLE = f"{DOMAIN}_updates_available"
+EVENT_COMMAND_FINISHED = f"{DOMAIN}_command_finished"
 
 # Wake-on-LAN method
 CONF_WOL_METHOD = "wol_method"

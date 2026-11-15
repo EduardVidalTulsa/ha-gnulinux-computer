@@ -36,3 +36,26 @@ update_log:
           min: 10
           max: 5000
           mode: box
+run_command:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: gnulinux_computer
+    command:
+      required: true
+      example: Backup
+      selector:
+        text:
+use_shared_key:
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: gnulinux_computer
+    remove_old_key:
+      default: true
+      selector:
+        boolean:

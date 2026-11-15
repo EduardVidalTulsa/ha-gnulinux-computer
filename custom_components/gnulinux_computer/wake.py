@@ -81,11 +81,13 @@ async def async_wake(hass: HomeAssistant, entry: ConfigEntry) -> None:
         return
 
     if method == WOL_MIKROTIK:
+        try:
+            command = routeros_wol_command(mac, opts.get(CONF_WOL_ROUTER_INTERFACE))
+        except ValueError as err:
+            raise HomeAssistantError(str(err)) from err
         client = await router_client(hass, opts)
         try:
-            res = await client.run_raw(
-                routeros_wol_command(mac, opts.get(CONF_WOL_ROUTER_INTERFACE)), timeout=20
-            )
+            res = await client.run_raw(command, timeout=20)
         except (CannotConnect, CommandError) as err:
             raise HomeAssistantError(f"Router {client.host} no respon: {err}") from err
         finally:

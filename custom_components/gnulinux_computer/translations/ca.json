@@ -27,7 +27,7 @@
         }
       },
       "generate_key": {
-        "title": "Clau SSH nova",
+        "title": "Clau SSH compartida",
         "description": "Afegeix aquesta clau pública a `~/.ssh/authorized_keys` de **{user}** a **{host}**:\n\n`{pubkey}`\n\nPer exemple:\n\n`{command}`\n\nDesprés prem Envia.",
         "data": {
           "sudo_password": "Contrasenya de sudo (opcional)"
@@ -41,16 +41,28 @@
           "allow_hibernate": "Permet hibernar (disc)",
           "allow_poweroff": "Permet apagar"
         }
+      },
+      "reauth_confirm": {
+        "title": "Ha fallat l'autenticació",
+        "description": "**{host}** ha rebutjat les credencials de **{user}** (contrasenya canviada, clau esborrada o clau d'amfitrió canviada). Home Assistant ha deixat de connectar-s'hi.\n\nEscriu la contrasenya nova, el camí d'una clau, o tria *Genera* per fer servir la clau compartida de Home Assistant — abans afegeix-la a `~/.ssh/authorized_keys`:\n\n`{pubkey}`\n\nClau d'amfitrió ara: `{fingerprint}` ({host_key_status}; abans: `{old_fingerprint}`). **⚠ ≠ vol dir que la clau d'amfitrió ha canviat**: envia només si saps per què (p. ex. has reinstal·lat l'ordinador).",
+        "data": {
+          "auth_method": "Autenticació",
+          "password": "Contrasenya",
+          "key_path": "Clau privada (camí)",
+          "sudo_password": "Contrasenya de sudo (només per canviar-la)"
+        }
       }
     },
     "error": {
       "cannot_connect": "No s'ha pogut connectar",
       "invalid_auth": "Autenticació incorrecta",
       "invalid_key": "No s'ha pogut llegir la clau privada",
-      "no_sudo": "L'usuari no pot fer servir sudo (afegeix-lo al grup wheel o indica la contrasenya de sudo)"
+      "no_sudo": "L'usuari no pot fer de root: afegeix-lo al grup wheel/sudo, dona la contrasenya de sudo, o permet-lo a doas.conf (permit nopass)"
     },
     "abort": {
-      "already_configured": "Aquest ordinador ja està configurat; s'han actualitzat les dades de connexió"
+      "already_configured": "Aquest ordinador ja està configurat; s'han actualitzat les dades de connexió",
+      "reauth_successful": "Credencials actualitzades",
+      "wrong_computer": "És un altre ordinador (el machine-id no coincideix)"
     }
   },
   "options": {
@@ -67,7 +79,12 @@
           "wol_method": "Mètode de Wake-on-LAN",
           "allow_suspend": "Permet suspendre (RAM)",
           "allow_hibernate": "Permet hibernar (disc)",
-          "allow_poweroff": "Permet apagar"
+          "allow_poweroff": "Permet apagar",
+          "commands": "Ordres personalitzades",
+          "public_ip": "Detecta la IP pública (l'ordinador ho pregunta a api.ipify.org)"
+        },
+        "data_description": {
+          "commands": "Una per línia: `Nom = ordre de shell`. Cadascuna es converteix en un botó i es pot executar amb l'acció run_command. Fes servir `$SUDO` per executar com a root, p. ex. `Còpia = $SUDO systemctl start backup.service`. Temps màxim: 5 minuts."
         }
       },
       "wol_computer": {
@@ -79,7 +96,7 @@
       },
       "wol_mikrotik": {
         "title": "Wake-on-LAN a través d'un router MikroTik",
-        "description": "El router de la xarxa d'aquest ordinador envia el paquet màgic amb `/tool wol`.\n\nCrea-hi un usuari restringit (terminal de RouterOS):\n\n```\n{command}\n```\n\nS'ha generat la clau `/config/.ssh/gnulinux_mikrotik` per a això. Deixa la contrasenya en blanc per fer servir només la clau.",
+        "description": "El router de la xarxa d'aquest ordinador envia el paquet màgic amb `/tool wol`.\n\nCrea un usuari restringit al router (terminal de RouterOS):\n\n```\n{command}\n```\n\nLa clau que es mostra és la del camí de sota (per defecte, la clau compartida de Home Assistant). Deixa la contrasenya buida per fer servir només la clau.",
         "data": {
           "wol_router_host": "Adreça del router",
           "wol_router_port": "Port SSH",
@@ -103,7 +120,9 @@
       "cannot_connect": "No s'ha pogut connectar",
       "invalid_auth": "Autenticació incorrecta",
       "invalid_key": "No s'ha pogut llegir la clau privada",
-      "not_routeros": "Connectat, però no sembla un RouterOS"
+      "not_routeros": "Connectat, però no sembla un RouterOS",
+      "invalid_commands": "Línia no vàlida: escriu `Nom = ordre` (nom: lletres, xifres, espais, fins a 40 caràcters, sense repetir)",
+      "invalid_unit": "Nom de servei no vàlid"
     },
     "abort": {
       "no_other_computer": "No hi ha cap altre ordinador configurat que pugui fer de pont",
@@ -115,7 +134,7 @@
       "options": {
         "password": "Usuari i contrasenya",
         "key_file": "Clau SSH existent",
-        "generate_key": "Genera una clau SSH nova"
+        "generate_key": "Clau SSH compartida de Home Assistant (es crea si no existeix)"
       }
     },
     "wol_method": {
@@ -198,6 +217,12 @@
           "success": "Correcta",
           "failed": "Fallada"
         }
+      },
+      "ip_address": {
+        "name": "Adreça IP"
+      },
+      "public_ip": {
+        "name": "IP pública"
       }
     },
     "update": {
@@ -227,6 +252,12 @@
       },
       "container": {
         "name": "Contenidor {name}"
+      },
+      "apk": {
+        "name": "Paquets del sistema (apk)"
+      },
+      "ostree": {
+        "name": "Imatge del sistema (rpm-ostree / bootc)"
       }
     },
     "select": {
@@ -239,6 +270,9 @@
           "poweroff": "Apagat",
           "reboot": "Reinici"
         }
+      },
+      "esim_profile": {
+        "name": "Perfil eSIM"
       }
     },
     "button": {
@@ -253,11 +287,19 @@
       },
       "update_all": {
         "name": "Actualitza-ho tot"
+      },
+      "command": {
+        "name": "{name}"
       }
     },
     "image": {
       "screenshot": {
         "name": "Captura de pantalla"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Ubicació"
       }
     }
   },
@@ -301,6 +343,34 @@
         "lines": {
           "name": "Línies",
           "description": "Nombre de línies del final de la sortida."
+        }
+      }
+    },
+    "run_command": {
+      "name": "Executa una ordre personalitzada",
+      "description": "Executa una de les ordres personalitzades definides a les opcions de l'ordinador i en retorna la sortida. Només administradors.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ordinador",
+          "description": "Ordinador on s'executa."
+        },
+        "command": {
+          "name": "Ordre",
+          "description": "Nom de l'ordre, tal com està escrit a les opcions."
+        }
+      }
+    },
+    "use_shared_key": {
+      "name": "Fes servir la clau SSH compartida",
+      "description": "Autoritza la clau compartida de Home Assistant (/config/.ssh/gnulinux_computer) a l'ordinador amb les credencials actuals, comprova que funciona i hi canvia. Sense ordinador, ho fa a tots. Només administradors.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ordinador",
+          "description": "Deixa-ho buit per a tots els ordinadors."
+        },
+        "remove_old_key": {
+          "name": "Esborra la clau antiga",
+          "description": "Esborra de l'ordinador la clau individual que aquesta integració havia generat abans."
         }
       }
     }

@@ -23,6 +23,7 @@ from homeassistant.util import dt as dt_util
 
 from . import GLConfigEntry
 from .coordinator import BACKEND_LABELS, StatusCoordinator, UpdatesCoordinator, UpdatesData
+from .const import CONF_PUBLIC_IP
 from .entity import GLEntity
 from .power import PowerValues
 from .remote import StatusData, Volume
@@ -82,6 +83,13 @@ STATUS_SENSORS = (
         value=lambda s: s.mem_used_pct,
     ),
     StatusSensorDescription(
+        key="ip_address",
+        translation_key="ip_address",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value=lambda s: s.primary_ip,
+        attrs=lambda s: {"addresses": s.addresses},
+    ),
+    StatusSensorDescription(
         key="services_running",
         translation_key="services_running",
         state_class=SensorStateClass.MEASUREMENT,
@@ -117,6 +125,8 @@ async def async_setup_entry(
     rt = entry.runtime_data
     entities: list[SensorEntity] = [StatusSensor(entry, rt, d) for d in STATUS_SENSORS]
     entities += [UpdatesTotalSensor(entry, rt), LastCheckSensor(entry, rt), LastJobSensor(entry, rt)]
+    if entry.options.get(CONF_PUBLIC_IP, True):
+        entities.append(PublicIpSensor(entry, rt))
     async_add_entities(entities)
 
     known: set[str] = set()
@@ -386,3 +396,27 @@ class LastJobSensor(_UpdatesBase):
             "exit_code": job.rc,
             "log": job.log.rstrip()[-8000:],
         }
+
+
+class PublicIpSensor(GLEntity, CoordinatorEntity[StatusCoordinator], SensorEntity):
+    """Address the computer has on the Internet (asked every 5 minutes)."""
+
+    _attr_translation_key = "public_ip"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, entry: GLConfigEntry, rt) -> None:
+        """Initialize."""
+        GLEntity.__init__(self, entry, rt, "public_ip")
+        CoordinatorEntity.__init__(self, rt.status)
+
+    @property
+    def native_value(self) -> str | None:
+        """IPv4 when there is one, otherwise IPv6."""
+        ips = self.coordinator.public_ip
+        return ips.get("ipv4") or ips.get("ipv6")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Both families."""
+        ips = self.coordinator.public_ip
+        return {"ipv4": ips.get("ipv4"), "ipv6": ips.get("ipv6")}

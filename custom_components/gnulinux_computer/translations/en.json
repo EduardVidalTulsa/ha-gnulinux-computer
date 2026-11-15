@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "GNU+Linux computer",
-        "description": "SSH connection to the computer. The user must be able to use sudo (wheel/sudo group).",
+        "description": "SSH connection to the computer. The user must be able to become root with sudo (wheel/sudo group) or doas.",
         "data": {
           "host": "Host",
           "port": "Port",
@@ -27,7 +27,7 @@
         }
       },
       "generate_key": {
-        "title": "New SSH key",
+        "title": "Shared SSH key",
         "description": "Add this public key to `~/.ssh/authorized_keys` of **{user}** on **{host}**:\n\n`{pubkey}`\n\nFor example:\n\n`{command}`\n\nThen press Submit.",
         "data": {
           "sudo_password": "Sudo password (optional)"
@@ -41,16 +41,28 @@
           "allow_hibernate": "Allow hibernate (disk)",
           "allow_poweroff": "Allow power off"
         }
+      },
+      "reauth_confirm": {
+        "title": "Authentication failed",
+        "description": "**{host}** rejected the credentials of **{user}** (password changed, key removed, or the host key changed). Home Assistant stopped connecting to it.\n\nEnter the new password, the path of a key, or choose *Generate* to use the shared key of Home Assistant — add it to `~/.ssh/authorized_keys` first:\n\n`{pubkey}`\n\nHost key now: `{fingerprint}` ({host_key_status}; before: `{old_fingerprint}`). **⚠ ≠ means the host key changed**: submit only if you know why (e.g. the computer was reinstalled).",
+        "data": {
+          "auth_method": "Authentication",
+          "password": "Password",
+          "key_path": "Private key (path)",
+          "sudo_password": "Sudo password (only to change it)"
+        }
       }
     },
     "error": {
       "cannot_connect": "Cannot connect",
       "invalid_auth": "Invalid authentication",
       "invalid_key": "Cannot read the private key",
-      "no_sudo": "The user cannot use sudo (add it to the wheel group or provide the sudo password)"
+      "no_sudo": "The user cannot become root: add it to the wheel/sudo group, give the sudo password, or allow it in doas.conf (permit nopass)"
     },
     "abort": {
-      "already_configured": "This computer is already configured; connection data updated"
+      "already_configured": "This computer is already configured; connection data updated",
+      "reauth_successful": "Credentials updated",
+      "wrong_computer": "That is a different computer (the machine-id does not match)"
     }
   },
   "options": {
@@ -67,7 +79,12 @@
           "wol_method": "Wake-on-LAN method",
           "allow_suspend": "Allow suspend (RAM)",
           "allow_hibernate": "Allow hibernate (disk)",
-          "allow_poweroff": "Allow power off"
+          "allow_poweroff": "Allow power off",
+          "commands": "Custom commands",
+          "public_ip": "Detect the public IP (the computer asks api.ipify.org)"
+        },
+        "data_description": {
+          "commands": "One per line: `Name = shell command`. Each becomes a button and can be run with the run_command action. Use `$SUDO` to run as root, e.g. `Backup = $SUDO systemctl start backup.service`. Timeout: 5 minutes."
         }
       },
       "wol_computer": {
@@ -79,7 +96,7 @@
       },
       "wol_mikrotik": {
         "title": "Wake-on-LAN through a MikroTik router",
-        "description": "The router of this computer's network sends the magic packet with `/tool wol`.\n\nCreate a restricted user on the router (RouterOS terminal):\n\n```\n{command}\n```\n\nThe key `/config/.ssh/gnulinux_mikrotik` was generated for this. Leave the password empty to use only the key.",
+        "description": "The router of this computer's network sends the magic packet with `/tool wol`.\n\nCreate a restricted user on the router (RouterOS terminal):\n\n```\n{command}\n```\n\nThe key shown is the one of the path below (by default the shared key of Home Assistant). Leave the password empty to use only the key.",
         "data": {
           "wol_router_host": "Router address",
           "wol_router_port": "SSH port",
@@ -103,7 +120,9 @@
       "cannot_connect": "Cannot connect",
       "invalid_auth": "Invalid authentication",
       "invalid_key": "Cannot read the private key",
-      "not_routeros": "Connected, but it does not look like RouterOS"
+      "not_routeros": "Connected, but it does not look like RouterOS",
+      "invalid_commands": "Invalid line: use `Name = command` (name: letters, digits, spaces, up to 40 characters, not repeated)",
+      "invalid_unit": "Invalid service name"
     },
     "abort": {
       "no_other_computer": "There is no other computer configured to act as a relay",
@@ -115,7 +134,7 @@
       "options": {
         "password": "Username and password",
         "key_file": "Existing SSH key",
-        "generate_key": "Generate a new SSH key"
+        "generate_key": "Shared SSH key of Home Assistant (created if missing)"
       }
     },
     "wol_method": {
@@ -198,6 +217,12 @@
           "success": "Successful",
           "failed": "Failed"
         }
+      },
+      "ip_address": {
+        "name": "IP address"
+      },
+      "public_ip": {
+        "name": "Public IP"
       }
     },
     "update": {
@@ -227,6 +252,12 @@
       },
       "container": {
         "name": "Container {name}"
+      },
+      "apk": {
+        "name": "System packages (apk)"
+      },
+      "ostree": {
+        "name": "System image (rpm-ostree / bootc)"
       }
     },
     "select": {
@@ -239,6 +270,9 @@
           "poweroff": "Off",
           "reboot": "Reboot"
         }
+      },
+      "esim_profile": {
+        "name": "eSIM profile"
       }
     },
     "button": {
@@ -253,11 +287,19 @@
       },
       "update_all": {
         "name": "Update all"
+      },
+      "command": {
+        "name": "{name}"
       }
     },
     "image": {
       "screenshot": {
         "name": "Screenshot"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Location"
       }
     }
   },
@@ -301,6 +343,34 @@
         "lines": {
           "name": "Lines",
           "description": "Number of lines from the end of the output."
+        }
+      }
+    },
+    "run_command": {
+      "name": "Run custom command",
+      "description": "Runs one of the custom commands defined in the options of the computer and returns its output. Administrators only.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Computer",
+          "description": "Computer to run it on."
+        },
+        "command": {
+          "name": "Command",
+          "description": "Name of the command, as written in the options."
+        }
+      }
+    },
+    "use_shared_key": {
+      "name": "Use the shared SSH key",
+      "description": "Authorizes the shared key of Home Assistant (/config/.ssh/gnulinux_computer) on the computer with its current credentials, checks that it works and switches to it. Without a computer, does it for all of them. Administrators only.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Computer",
+          "description": "Leave empty for all computers."
+        },
+        "remove_old_key": {
+          "name": "Remove the old key",
+          "description": "Remove from the computer the per-computer key that this integration generated before."
         }
       }
     }

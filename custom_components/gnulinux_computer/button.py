@@ -7,11 +7,12 @@ from __future__ import annotations
 from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import GLConfigEntry
-from .const import POWER_REBOOT
+from .const import CONF_COMMANDS, CONF_MACHINE_ID, POWER_REBOOT
 from .entity import GLEntity
 
 
@@ -26,8 +27,59 @@ async def async_setup_entry(
             CheckUpdatesButton(entry, rt),
             UpdateAllButton(entry, rt),
             ScreenshotButton(entry, rt),
+            *(CommandButton(entry, rt, name) for name in entry.options.get(CONF_COMMANDS) or {}),
         ]
     )
+    # Buttons of commands that were removed from the options
+    wanted = {_command_uid(entry, name) for name in entry.options.get(CONF_COMMANDS) or {}}
+    prefix = f"{entry.data[CONF_MACHINE_ID]}_command_"
+    registry = er.async_get(hass)
+    for ent in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if ent.domain == "button" and ent.unique_id.startswith(prefix) and ent.unique_id not in wanted:
+            registry.async_remove(ent.entity_id)
+
+
+def _command_uid(entry: GLConfigEntry, name: str) -> str:
+    return f"{entry.data[CONF_MACHINE_ID]}_command_{name}"
+
+
+class CommandButton(GLEntity, ButtonEntity):
+    """Runs one of the custom commands defined in the options."""
+
+    _attr_translation_key = "command"
+
+    def __init__(self, entry: GLConfigEntry, rt, name: str) -> None:
+        """Initialize."""
+        super().__init__(entry, rt, f"command_{name}")
+        self._name = name
+        self._attr_translation_placeholders = {"name": name}
+
+    async def async_added_to_hass(self) -> None:
+        """Show the result of runs started from the action too."""
+        await super().async_added_to_hass()
+        self.runtime.command_listeners.append(self.async_write_ha_state)
+        self.async_on_remove(
+            lambda: self.runtime.command_listeners.remove(self.async_write_ha_state)
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        """Exit code and output of the last run."""
+        res = self.runtime.command_results.get(self._name)
+        if res is None:
+            return None
+        return {
+            "exit_code": res["exit_code"],
+            "output": (res["stdout"] or res["stderr"])[-2000:],
+            "duration": res["duration"],
+        }
+
+    async def async_press(self) -> None:
+        """Run it; a non-zero exit code is an error."""
+        res = await self.runtime.async_command(self._name, self.entry)
+        if res["exit_code"] != 0:
+            tail = (res["stderr"] or res["stdout"]).strip()[-300:]
+            raise HomeAssistantError(f"{self._name}: codi {res['exit_code']} {tail}")
 
 
 class RebootButton(GLEntity, ButtonEntity):

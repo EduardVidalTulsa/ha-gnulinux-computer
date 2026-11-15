@@ -1,0 +1,378 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GNU+Linux 计算机",
+        "description": "通过 SSH 连接到计算机。该用户必须能够通过 sudo（wheel/sudo 组）或 doas 获得 root 权限。",
+        "data": {
+          "host": "主机",
+          "port": "端口",
+          "username": "用户名",
+          "auth_method": "认证方式"
+        }
+      },
+      "password": {
+        "title": "密码",
+        "description": "{user}@{host} 的密码。同时用于 sudo。",
+        "data": {
+          "password": "密码"
+        }
+      },
+      "key_file": {
+        "title": "SSH 密钥",
+        "description": "私钥在 Home Assistant 中的路径（例如 /config/.ssh/...）。仅当 sudo 要求时才需要 sudo 密码。",
+        "data": {
+          "key_path": "私钥",
+          "sudo_password": "sudo 密码（可选）"
+        }
+      },
+      "generate_key": {
+        "title": "共享 SSH 密钥",
+        "description": "将此公钥添加到 **{host}** 上 **{user}** 的 `~/.ssh/authorized_keys`：\n\n`{pubkey}`\n\n例如：\n\n`{command}`\n\n然后点击提交。",
+        "data": {
+          "sudo_password": "sudo 密码（可选）"
+        }
+      },
+      "power": {
+        "title": "电源操作",
+        "description": "允许 Home Assistant 在这台计算机上执行哪些操作？服务器请全部关闭。\n\n检测到的睡眠状态：{detected}。",
+        "data": {
+          "allow_suspend": "允许挂起（内存）",
+          "allow_hibernate": "允许休眠（磁盘）",
+          "allow_poweroff": "允许关机"
+        }
+      },
+      "reauth_confirm": {
+        "title": "认证失败",
+        "description": "**{host}** 拒绝了 **{user}** 的凭据（密码已更改、密钥已删除或主机密钥已更改）。Home Assistant 已停止连接。\n\n请输入新密码、密钥路径，或选择*生成*以使用 Home Assistant 的共享密钥 — 请先将其添加到 `~/.ssh/authorized_keys`：\n\n`{pubkey}`\n\n当前主机密钥：`{fingerprint}`（{host_key_status}；之前：`{old_fingerprint}`）。**⚠ ≠ 表示主机密钥已更改**：仅在您知道原因时提交（例如计算机已重装）。",
+        "data": {
+          "auth_method": "认证方式",
+          "password": "密码",
+          "key_path": "私钥（路径）",
+          "sudo_password": "sudo 密码（仅在需要更改时填写）"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法连接",
+      "invalid_auth": "认证无效",
+      "invalid_key": "无法读取私钥",
+      "no_sudo": "该用户无法获得 root 权限：请将其加入 wheel/sudo 组、提供 sudo 密码，或在 doas.conf 中允许（permit nopass）"
+    },
+    "abort": {
+      "already_configured": "这台计算机已配置；连接数据已更新",
+      "reauth_successful": "凭据已更新",
+      "wrong_computer": "这是另一台计算机（machine-id 不匹配）"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "选项",
+        "data": {
+          "units": "要监控的服务",
+          "notify": "有新更新时通知",
+          "update_interval": "更新检查间隔",
+          "status_interval": "状态间隔",
+          "mac": "Wake-on-LAN MAC 地址",
+          "broadcast_address": "WoL 广播地址",
+          "wol_method": "Wake-on-LAN 方式",
+          "allow_suspend": "允许挂起（内存）",
+          "allow_hibernate": "允许休眠（磁盘）",
+          "allow_poweroff": "允许关机",
+          "commands": "自定义命令",
+          "public_ip": "检测公网 IP（由计算机向 api.ipify.org 查询）"
+        },
+        "data_description": {
+          "commands": "每行一条：`名称 = shell 命令`。每条命令会成为一个按钮，也可以通过 run_command 动作运行。使用 `$SUDO` 以 root 身份运行，例如 `Backup = $SUDO systemctl start backup.service`。超时：5 分钟。"
+        }
+      },
+      "wol_computer": {
+        "title": "通过另一台计算机进行 Wake-on-LAN",
+        "description": "选择一台始终开机且与本机处于同一网络的计算机。它将发送魔术包（需要 `wakeonlan` 或 `python3`）。",
+        "data": {
+          "wol_relay_entry": "计算机"
+        }
+      },
+      "wol_mikrotik": {
+        "title": "通过 MikroTik 路由器进行 Wake-on-LAN",
+        "description": "由这台计算机所在网络的路由器通过 `/tool wol` 发送魔术包。\n\n在路由器上创建一个受限用户（RouterOS 终端）：\n\n```\n{command}\n```\n\n显示的密钥是下方路径对应的密钥（默认为 Home Assistant 的共享密钥）。密码留空则仅使用密钥。",
+        "data": {
+          "wol_router_host": "路由器地址",
+          "wol_router_port": "SSH 端口",
+          "wol_router_user": "用户",
+          "wol_router_key": "私钥（路径）",
+          "wol_router_password": "密码（可选）",
+          "wol_router_interface": "接口（例如 bridge）"
+        }
+      },
+      "wol_ha_mikrotik": {
+        "title": "通过 Home Assistant 中的 MikroTik 进行 Wake-on-LAN",
+        "description": "使用 MikroTik 集成的连接（`/tool/wol`）。路由器的 API 用户需要 **test** 策略。",
+        "data": {
+          "wol_ha_mikrotik_entry": "路由器",
+          "wol_router_interface": "接口（例如 bridge）"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "MAC 地址无效",
+      "cannot_connect": "无法连接",
+      "invalid_auth": "认证无效",
+      "invalid_key": "无法读取私钥",
+      "not_routeros": "已连接，但看起来不是 RouterOS",
+      "invalid_commands": "无效的行：请使用 `名称 = 命令`（名称：字母、数字、空格，最多 40 个字符，不可重复）",
+      "invalid_unit": "服务名称无效"
+    },
+    "abort": {
+      "no_other_computer": "没有配置其他可用作中继的计算机",
+      "no_mikrotik": "请先通过 MikroTik 集成添加路由器"
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "password": "用户名和密码",
+        "key_file": "现有 SSH 密钥",
+        "generate_key": "Home Assistant 的共享 SSH 密钥（不存在时自动创建）"
+      }
+    },
+    "wol_method": {
+      "options": {
+        "local": "从 Home Assistant 广播（同一网络）",
+        "computer": "通过本集成中的另一台计算机",
+        "ha_mikrotik": "通过已添加到 Home Assistant 的 MikroTik 路由器",
+        "mikrotik": "通过 MikroTik 路由器（SSH）"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "在线"
+      },
+      "unit": {
+        "name": "服务 {unit}"
+      },
+      "reboot_required": {
+        "name": "需要重启"
+      }
+    },
+    "sensor": {
+      "failed_units": {
+        "name": "失败的服务"
+      },
+      "system_state": {
+        "name": "系统状态"
+      },
+      "boot_time": {
+        "name": "上次启动"
+      },
+      "load_1m": {
+        "name": "负载（1 分钟）"
+      },
+      "memory_used": {
+        "name": "已用内存"
+      },
+      "updates": {
+        "name": "待处理的更新"
+      },
+      "last_check": {
+        "name": "上次检查更新"
+      },
+      "volume": {
+        "name": "卷 {mount}"
+      },
+      "services_running": {
+        "name": "运行中的服务"
+      },
+      "services_enabled": {
+        "name": "已启用的服务"
+      },
+      "services_disabled": {
+        "name": "已禁用的服务"
+      },
+      "power_total": {
+        "name": "功率（估算）"
+      },
+      "power_cpu": {
+        "name": "CPU 功率"
+      },
+      "power_platform": {
+        "name": "平台功率（psys）"
+      },
+      "power_gpu": {
+        "name": "GPU 功率"
+      },
+      "power_battery": {
+        "name": "电池功率"
+      },
+      "power_pmic": {
+        "name": "PMIC 功率"
+      },
+      "last_update": {
+        "name": "上次更新",
+        "state": {
+          "running": "进行中",
+          "success": "成功",
+          "failed": "失败"
+        }
+      },
+      "ip_address": {
+        "name": "IP 地址"
+      },
+      "public_ip": {
+        "name": "公网 IP"
+      }
+    },
+    "update": {
+      "pacman": {
+        "name": "系统软件包（pacman）"
+      },
+      "aur": {
+        "name": "AUR"
+      },
+      "dnf": {
+        "name": "系统软件包（DNF）"
+      },
+      "zypper": {
+        "name": "系统软件包（zypper）"
+      },
+      "apt": {
+        "name": "系统软件包（APT）"
+      },
+      "flatpak": {
+        "name": "Flatpak"
+      },
+      "snap": {
+        "name": "Snap"
+      },
+      "firmware": {
+        "name": "固件（fwupd）"
+      },
+      "container": {
+        "name": "容器 {name}"
+      },
+      "apk": {
+        "name": "系统软件包（apk）"
+      },
+      "ostree": {
+        "name": "系统镜像（rpm-ostree / bootc）"
+      }
+    },
+    "select": {
+      "power": {
+        "name": "电源",
+        "state": {
+          "on": "开机",
+          "suspend": "已挂起（内存）",
+          "hibernate": "已休眠（磁盘）",
+          "poweroff": "关机",
+          "reboot": "重启"
+        }
+      },
+      "esim_profile": {
+        "name": "eSIM 配置文件"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "重启"
+      },
+      "check_updates": {
+        "name": "检查更新"
+      },
+      "screenshot": {
+        "name": "截取屏幕"
+      },
+      "update_all": {
+        "name": "全部更新"
+      },
+      "command": {
+        "name": "{name}"
+      }
+    },
+    "image": {
+      "screenshot": {
+        "name": "屏幕截图"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "位置"
+      }
+    }
+  },
+  "services": {
+    "service_control": {
+      "name": "服务控制",
+      "description": "启动、停止、重启、启用或禁用计算机上的服务。",
+      "fields": {
+        "config_entry_id": {
+          "name": "计算机",
+          "description": "要操作的计算机。"
+        },
+        "unit": {
+          "name": "服务",
+          "description": "服务名称（例如 sshd.service）。"
+        },
+        "command": {
+          "name": "命令",
+          "description": "对服务执行的操作。"
+        }
+      }
+    },
+    "take_screenshot": {
+      "name": "截取屏幕",
+      "description": "截取当前图形会话的屏幕。",
+      "fields": {
+        "config_entry_id": {
+          "name": "计算机",
+          "description": "要截屏的计算机。"
+        }
+      }
+    },
+    "update_log": {
+      "name": "更新日志",
+      "description": "返回计算机上最近一次更新的输出。",
+      "fields": {
+        "config_entry_id": {
+          "name": "计算机",
+          "description": "要读取日志的计算机。"
+        },
+        "lines": {
+          "name": "行数",
+          "description": "从输出末尾起的行数。"
+        }
+      }
+    },
+    "run_command": {
+      "name": "运行自定义命令",
+      "description": "运行计算机选项中定义的某条自定义命令并返回其输出。仅限管理员。",
+      "fields": {
+        "config_entry_id": {
+          "name": "计算机",
+          "description": "要运行命令的计算机。"
+        },
+        "command": {
+          "name": "命令",
+          "description": "命令名称，与选项中填写的一致。"
+        }
+      }
+    },
+    "use_shared_key": {
+      "name": "使用共享 SSH 密钥",
+      "description": "使用当前凭据在计算机上授权 Home Assistant 的共享密钥（/config/.ssh/gnulinux_computer），验证可用后切换到该密钥。未指定计算机时对所有计算机执行。仅限管理员。",
+      "fields": {
+        "config_entry_id": {
+          "name": "计算机",
+          "description": "留空表示所有计算机。"
+        },
+        "remove_old_key": {
+          "name": "删除旧密钥",
+          "description": "从计算机上删除本集成此前为该计算机单独生成的密钥。"
+        }
+      }
+    }
+  }
+}

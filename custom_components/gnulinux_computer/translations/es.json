@@ -1,0 +1,378 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ordenador GNU+Linux",
+        "description": "Conexión SSH con el ordenador. El usuario debe poder convertirse en root con sudo (grupo wheel/sudo) o doas.",
+        "data": {
+          "host": "Host",
+          "port": "Puerto",
+          "username": "Usuario",
+          "auth_method": "Autenticación"
+        }
+      },
+      "password": {
+        "title": "Contraseña",
+        "description": "Contraseña de {user}@{host}. También se usa para sudo.",
+        "data": {
+          "password": "Contraseña"
+        }
+      },
+      "key_file": {
+        "title": "Clave SSH",
+        "description": "Ruta de la clave privada dentro de Home Assistant (p. ej. /config/.ssh/...). La contraseña de sudo solo hace falta si sudo la pide.",
+        "data": {
+          "key_path": "Clave privada",
+          "sudo_password": "Contraseña de sudo (opcional)"
+        }
+      },
+      "generate_key": {
+        "title": "Clave SSH compartida",
+        "description": "Añade esta clave pública a `~/.ssh/authorized_keys` de **{user}** en **{host}**:\n\n`{pubkey}`\n\nPor ejemplo:\n\n`{command}`\n\nDespués pulsa Enviar.",
+        "data": {
+          "sudo_password": "Contraseña de sudo (opcional)"
+        }
+      },
+      "power": {
+        "title": "Acciones de energía",
+        "description": "¿Qué acciones puede ejecutar Home Assistant en este ordenador? Déjalo todo desactivado en los servidores.\n\nEstados de reposo detectados: {detected}.",
+        "data": {
+          "allow_suspend": "Permitir suspender (RAM)",
+          "allow_hibernate": "Permitir hibernar (disco)",
+          "allow_poweroff": "Permitir apagar"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ha fallado la autenticación",
+        "description": "**{host}** ha rechazado las credenciales de **{user}** (contraseña cambiada, clave eliminada o clave de host cambiada). Home Assistant ha dejado de conectarse.\n\nEscribe la nueva contraseña, la ruta de una clave, o elige *Generar* para usar la clave compartida de Home Assistant — antes añádela a `~/.ssh/authorized_keys`:\n\n`{pubkey}`\n\nClave de host ahora: `{fingerprint}` ({host_key_status}; antes: `{old_fingerprint}`). **⚠ ≠ significa que la clave de host ha cambiado**: envía solo si sabes por qué (p. ej. has reinstalado el ordenador).",
+        "data": {
+          "auth_method": "Autenticación",
+          "password": "Contraseña",
+          "key_path": "Clave privada (ruta)",
+          "sudo_password": "Contraseña de sudo (solo para cambiarla)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se puede conectar",
+      "invalid_auth": "Autenticación no válida",
+      "invalid_key": "No se puede leer la clave privada",
+      "no_sudo": "El usuario no puede convertirse en root: añádelo al grupo wheel/sudo, indica la contraseña de sudo o permítelo en doas.conf (permit nopass)"
+    },
+    "abort": {
+      "already_configured": "Este ordenador ya está configurado; se han actualizado los datos de conexión",
+      "reauth_successful": "Credenciales actualizadas",
+      "wrong_computer": "Es otro ordenador (el machine-id no coincide)"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones",
+        "data": {
+          "units": "Servicios a supervisar",
+          "notify": "Avisar de nuevas actualizaciones",
+          "update_interval": "Intervalo de comprobación de actualizaciones",
+          "status_interval": "Intervalo de estado",
+          "mac": "MAC para Wake-on-LAN",
+          "broadcast_address": "Dirección de difusión de WoL",
+          "wol_method": "Método de Wake-on-LAN",
+          "allow_suspend": "Permitir suspender (RAM)",
+          "allow_hibernate": "Permitir hibernar (disco)",
+          "allow_poweroff": "Permitir apagar",
+          "commands": "Comandos personalizados",
+          "public_ip": "Detectar la IP pública (el ordenador pregunta a api.ipify.org)"
+        },
+        "data_description": {
+          "commands": "Uno por línea: `Nombre = comando de shell`. Cada uno se convierte en un botón y puede ejecutarse con la acción run_command. Usa `$SUDO` para ejecutar como root, p. ej. `Backup = $SUDO systemctl start backup.service`. Tiempo máximo: 5 minutos."
+        }
+      },
+      "wol_computer": {
+        "title": "Wake-on-LAN a través de otro ordenador",
+        "description": "Elige un ordenador que esté siempre encendido y en la misma red que este. Enviará el paquete mágico (necesita `wakeonlan` o `python3`).",
+        "data": {
+          "wol_relay_entry": "Ordenador"
+        }
+      },
+      "wol_mikrotik": {
+        "title": "Wake-on-LAN a través de un router MikroTik",
+        "description": "El router de la red de este ordenador envía el paquete mágico con `/tool wol`.\n\nCrea un usuario restringido en el router (terminal de RouterOS):\n\n```\n{command}\n```\n\nLa clave mostrada es la de la ruta de abajo (por defecto, la clave compartida de Home Assistant). Deja la contraseña vacía para usar solo la clave.",
+        "data": {
+          "wol_router_host": "Dirección del router",
+          "wol_router_port": "Puerto SSH",
+          "wol_router_user": "Usuario",
+          "wol_router_key": "Clave privada (ruta)",
+          "wol_router_password": "Contraseña (opcional)",
+          "wol_router_interface": "Interfaz (p. ej. bridge)"
+        }
+      },
+      "wol_ha_mikrotik": {
+        "title": "Wake-on-LAN a través de un MikroTik de Home Assistant",
+        "description": "Usa la conexión de la integración MikroTik (`/tool/wol`). El usuario de la API del router necesita la política **test**.",
+        "data": {
+          "wol_ha_mikrotik_entry": "Router",
+          "wol_router_interface": "Interfaz (p. ej. bridge)"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "MAC no válida",
+      "cannot_connect": "No se puede conectar",
+      "invalid_auth": "Autenticación no válida",
+      "invalid_key": "No se puede leer la clave privada",
+      "not_routeros": "Conectado, pero no parece RouterOS",
+      "invalid_commands": "Línea no válida: usa `Nombre = comando` (nombre: letras, cifras, espacios, hasta 40 caracteres, sin repetir)",
+      "invalid_unit": "Nombre de servicio no válido"
+    },
+    "abort": {
+      "no_other_computer": "No hay ningún otro ordenador configurado que pueda hacer de puente",
+      "no_mikrotik": "Añade primero el router con la integración MikroTik"
+    }
+  },
+  "selector": {
+    "auth_method": {
+      "options": {
+        "password": "Usuario y contraseña",
+        "key_file": "Clave SSH existente",
+        "generate_key": "Clave SSH compartida de Home Assistant (se crea si no existe)"
+      }
+    },
+    "wol_method": {
+      "options": {
+        "local": "Difusión desde Home Assistant (misma red)",
+        "computer": "A través de otro ordenador de esta integración",
+        "ha_mikrotik": "A través de un router MikroTik añadido a Home Assistant",
+        "mikrotik": "A través de un router MikroTik (SSH)"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": {
+        "name": "En línea"
+      },
+      "unit": {
+        "name": "Servicio {unit}"
+      },
+      "reboot_required": {
+        "name": "Requiere reinicio"
+      }
+    },
+    "sensor": {
+      "failed_units": {
+        "name": "Servicios fallidos"
+      },
+      "system_state": {
+        "name": "Estado del sistema"
+      },
+      "boot_time": {
+        "name": "Último arranque"
+      },
+      "load_1m": {
+        "name": "Carga (1 min)"
+      },
+      "memory_used": {
+        "name": "Memoria usada"
+      },
+      "updates": {
+        "name": "Actualizaciones pendientes"
+      },
+      "last_check": {
+        "name": "Última comprobación de actualizaciones"
+      },
+      "volume": {
+        "name": "Volumen {mount}"
+      },
+      "services_running": {
+        "name": "Servicios en ejecución"
+      },
+      "services_enabled": {
+        "name": "Servicios habilitados"
+      },
+      "services_disabled": {
+        "name": "Servicios deshabilitados"
+      },
+      "power_total": {
+        "name": "Potencia (estimada)"
+      },
+      "power_cpu": {
+        "name": "Potencia de la CPU"
+      },
+      "power_platform": {
+        "name": "Potencia de la plataforma (psys)"
+      },
+      "power_gpu": {
+        "name": "Potencia de la GPU"
+      },
+      "power_battery": {
+        "name": "Potencia de la batería"
+      },
+      "power_pmic": {
+        "name": "Potencia del PMIC"
+      },
+      "last_update": {
+        "name": "Última actualización",
+        "state": {
+          "running": "En curso",
+          "success": "Correcta",
+          "failed": "Fallida"
+        }
+      },
+      "ip_address": {
+        "name": "Dirección IP"
+      },
+      "public_ip": {
+        "name": "IP pública"
+      }
+    },
+    "update": {
+      "pacman": {
+        "name": "Paquetes del sistema (pacman)"
+      },
+      "aur": {
+        "name": "AUR"
+      },
+      "dnf": {
+        "name": "Paquetes del sistema (DNF)"
+      },
+      "zypper": {
+        "name": "Paquetes del sistema (zypper)"
+      },
+      "apt": {
+        "name": "Paquetes del sistema (APT)"
+      },
+      "flatpak": {
+        "name": "Flatpak"
+      },
+      "snap": {
+        "name": "Snap"
+      },
+      "firmware": {
+        "name": "Firmware (fwupd)"
+      },
+      "container": {
+        "name": "Contenedor {name}"
+      },
+      "apk": {
+        "name": "Paquetes del sistema (apk)"
+      },
+      "ostree": {
+        "name": "Imagen del sistema (rpm-ostree / bootc)"
+      }
+    },
+    "select": {
+      "power": {
+        "name": "Energía",
+        "state": {
+          "on": "Encendido",
+          "suspend": "Suspendido (RAM)",
+          "hibernate": "Hibernado (disco)",
+          "poweroff": "Apagado",
+          "reboot": "Reiniciar"
+        }
+      },
+      "esim_profile": {
+        "name": "Perfil eSIM"
+      }
+    },
+    "button": {
+      "reboot": {
+        "name": "Reiniciar"
+      },
+      "check_updates": {
+        "name": "Buscar actualizaciones"
+      },
+      "screenshot": {
+        "name": "Hacer captura de pantalla"
+      },
+      "update_all": {
+        "name": "Actualizar todo"
+      },
+      "command": {
+        "name": "{name}"
+      }
+    },
+    "image": {
+      "screenshot": {
+        "name": "Captura de pantalla"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Ubicación"
+      }
+    }
+  },
+  "services": {
+    "service_control": {
+      "name": "Control de servicios",
+      "description": "Inicia, detiene, reinicia, habilita o deshabilita un servicio del ordenador.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ordenador",
+          "description": "Ordenador sobre el que actuar."
+        },
+        "unit": {
+          "name": "Servicio",
+          "description": "Nombre del servicio (p. ej. sshd.service)."
+        },
+        "command": {
+          "name": "Comando",
+          "description": "Qué hacer con el servicio."
+        }
+      }
+    },
+    "take_screenshot": {
+      "name": "Hacer captura de pantalla",
+      "description": "Hace una captura de pantalla de la sesión gráfica activa.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ordenador",
+          "description": "Ordenador a capturar."
+        }
+      }
+    },
+    "update_log": {
+      "name": "Registro de actualización",
+      "description": "Devuelve la salida de la última actualización ejecutada en el ordenador.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ordenador",
+          "description": "Ordenador del que leer el registro."
+        },
+        "lines": {
+          "name": "Líneas",
+          "description": "Número de líneas desde el final de la salida."
+        }
+      }
+    },
+    "run_command": {
+      "name": "Ejecutar comando personalizado",
+      "description": "Ejecuta uno de los comandos personalizados definidos en las opciones del ordenador y devuelve su salida. Solo administradores.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ordenador",
+          "description": "Ordenador en el que ejecutarlo."
+        },
+        "command": {
+          "name": "Comando",
+          "description": "Nombre del comando, tal como está escrito en las opciones."
+        }
+      }
+    },
+    "use_shared_key": {
+      "name": "Usar la clave SSH compartida",
+      "description": "Autoriza la clave compartida de Home Assistant (/config/.ssh/gnulinux_computer) en el ordenador con sus credenciales actuales, comprueba que funciona y pasa a usarla. Sin ordenador, lo hace en todos. Solo administradores.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ordenador",
+          "description": "Déjalo vacío para todos los ordenadores."
+        },
+        "remove_old_key": {
+          "name": "Eliminar la clave antigua",
+          "description": "Elimina del ordenador la clave individual que esta integración había generado antes."
+        }
+      }
+    }
+  }
+}
