@@ -31,8 +31,8 @@ SysV init.
 | **Volumes** | One sensor per mounted filesystem with used percentage, size and free space. Bind mounts and btrfs subvolumes of the same filesystem are grouped. |
 | **Screenshot** | Button + `image` entity with the active graphical session: Plasma (spectacle), GNOME, wlroots (grim) and X11 (import/scrot). |
 | **Power** | A select with *On* (Wake-on-LAN), *Suspend (RAM)*, *Hibernate (disk)*, *Off* and *Reboot*. The last state is remembered while the computer is off. |
-| **System** | Online, load, memory, boot time and init system state sensors. |
-| **Network** | **IP address** sensor (address of the default route; every address per interface as attributes) and **Public IP** sensor (IPv4 and IPv6 as seen from the Internet; the computer asks `api.ipify.org` every 5 minutes — can be turned off in the options). |
+| **System** | Online, load, memory, boot time, init system state and, on laptops, battery level sensors. |
+| **Network** | **IP address** sensor (address of the default route), one **IP &lt;interface&gt;** sensor per network interface (LAN, Wi-Fi, mobile data, Tailscale, WireGuard…) and **Public IP** sensor (IPv4 and IPv6 as seen from the Internet; the computer asks `api.ipify.org` every 5 minutes — can be turned off in the options). |
 
 ## Installation
 

@@ -225,6 +225,12 @@
       },
       "public_ip": {
         "name": "IP público"
+      },
+      "ip_interface": {
+        "name": "IP {interface}"
+      },
+      "battery_level": {
+        "name": "Bateria"
       }
     },
     "update": {

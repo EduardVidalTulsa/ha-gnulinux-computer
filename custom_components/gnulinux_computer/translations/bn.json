@@ -225,6 +225,12 @@
       },
       "public_ip": {
         "name": "পাবলিক IP"
+      },
+      "ip_interface": {
+        "name": "IP {interface}"
+      },
+      "battery_level": {
+        "name": "ব্যাটারি"
       }
     },
     "update": {

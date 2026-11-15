@@ -225,6 +225,12 @@
       },
       "public_ip": {
         "name": "公网 IP"
+      },
+      "ip_interface": {
+        "name": "IP {interface}"
+      },
+      "battery_level": {
+        "name": "电池"
       }
     },
     "update": {

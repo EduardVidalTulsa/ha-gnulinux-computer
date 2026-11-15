@@ -147,6 +147,26 @@ async def async_setup_entry(
     add_volumes()
     entry.async_on_unload(rt.status.async_add_listener(add_volumes))
 
+    known_ifaces: set[str] = set()
+
+    @callback
+    def add_interfaces() -> None:
+        # One sensor per network interface with an address: LAN, Wi-Fi, mobile
+        # data (wwan), VPNs (tailscale, wireguard)... not container bridges.
+        if not rt.status.online:
+            return
+        new = [
+            InterfaceIpSensor(entry, rt, name)
+            for name in rt.status.data.addresses
+            if name not in known_ifaces and not name.startswith(_SKIP_IFACES)
+        ]
+        known_ifaces.update(e.interface for e in new)
+        if new:
+            async_add_entities(new)
+
+    add_interfaces()
+    entry.async_on_unload(rt.status.async_add_listener(add_interfaces))
+
     added_power: set[str] = set()
 
     @callback
@@ -164,6 +184,34 @@ async def async_setup_entry(
 
     add_power()
     entry.async_on_unload(rt.status.async_add_listener(add_power))
+
+    has_battery = False
+
+    @callback
+    def add_battery() -> None:
+        nonlocal has_battery
+        if not has_battery and rt.status.online and rt.status.data.battery_level is not None:
+            has_battery = True
+            async_add_entities(
+                [
+                    StatusSensor(
+                        entry,
+                        rt,
+                        StatusSensorDescription(
+                            key="battery_level",
+                            translation_key="battery_level",
+                            device_class=SensorDeviceClass.BATTERY,
+                            native_unit_of_measurement=PERCENTAGE,
+                            state_class=SensorStateClass.MEASUREMENT,
+                            value=lambda s: s.battery_level,
+                            attrs=lambda s: {"status": s.battery_status},
+                        ),
+                    )
+                ]
+            )
+
+    add_battery()
+    entry.async_on_unload(rt.status.async_add_listener(add_battery))
 
 
 class StatusSensor(GLEntity, CoordinatorEntity[StatusCoordinator], SensorEntity):
@@ -396,6 +444,39 @@ class LastJobSensor(_UpdatesBase):
             "exit_code": job.rc,
             "log": job.log.rstrip()[-8000:],
         }
+
+
+_SKIP_IFACES = ("docker", "br-", "veth", "virbr", "cni", "podman", "lxc", "vnet", "flannel", "cali")
+
+
+class InterfaceIpSensor(GLEntity, CoordinatorEntity[StatusCoordinator], SensorEntity):
+    """Address of one network interface."""
+
+    _attr_translation_key = "ip_interface"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, entry: GLConfigEntry, rt, interface: str) -> None:
+        """Initialize."""
+        GLEntity.__init__(self, entry, rt, f"ip_{interface}")
+        CoordinatorEntity.__init__(self, rt.status)
+        self.interface = interface
+        self._attr_translation_placeholders = {"interface": interface}
+
+    @property
+    def _addresses(self) -> list[str]:
+        data = self.coordinator.data
+        return data.addresses.get(self.interface, []) if data else []
+
+    @property
+    def native_value(self) -> str | None:
+        """IPv4 address when there is one, otherwise the first IPv6 (unknown when down)."""
+        addrs = self._addresses
+        return next((a for a in addrs if ":" not in a), addrs[0] if addrs else None)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Every address of the interface."""
+        return {"addresses": self._addresses}
 
 
 class PublicIpSensor(GLEntity, CoordinatorEntity[StatusCoordinator], SensorEntity):

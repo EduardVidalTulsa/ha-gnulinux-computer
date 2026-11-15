@@ -131,6 +131,12 @@ for p in /sys/class/power_supply/*; do
   else continue; fi
   echo "$(basename "$p") $(cat "$p/status" 2>/dev/null) $w"
 done
+echo "@battery_level"
+for p in /sys/class/power_supply/*; do
+  [ "$(cat "$p/type" 2>/dev/null)" = Battery ] || continue
+  [ "$(cat "$p/scope" 2>/dev/null)" = Device ] && continue
+  [ -r "$p/capacity" ] && echo "$(cat "$p/capacity") $(cat "$p/status" 2>/dev/null)"
+done
 if command -v vcgencmd >/dev/null 2>&1; then
   # /dev/vcio_gencmd is often root-only: then read it with sudo only on slow polls
   if out=$(vcgencmd pmic_read_adc 2>/dev/null); then echo "@pmic"; printf '%s\n' "$out"
@@ -316,6 +322,8 @@ class StatusData:
     location: Location | None = None  # only read on slow polls
     addresses: dict[str, list[str]] = field(default_factory=dict)  # interface -> IPs
     primary_ip: str | None = None
+    battery_level: int | None = None  # percent (mean when there are several)
+    battery_status: str | None = None  # Charging, Discharging, Full...
     public_ip: dict[str, str] | None = None  # {"ipv4": ..., "ipv6": ...}; slow polls
 
     @property
@@ -414,7 +422,21 @@ def parse_status(text: str, units: list[str]) -> StatusData:
         sections={k: v for k, v in sec.items() if k in ("gpu", "battery", "pmic", "rapl")},
         location=parse_location(sec),
         **_parse_addresses(sec),
+        **_parse_battery(sec),
     )
+
+
+def _parse_battery(sec: dict[str, list[str]]) -> dict:
+    levels: list[int] = []
+    status = None
+    for line in sec.get("battery_level", []):
+        level, _, state = line.strip().partition(" ")
+        if level.isdigit():
+            levels.append(min(int(level), 100))
+            status = status or state.strip() or None
+    if not levels:
+        return {}
+    return {"battery_level": round(sum(levels) / len(levels)), "battery_status": status}
 
 
 def _is_ip(value: str) -> bool:

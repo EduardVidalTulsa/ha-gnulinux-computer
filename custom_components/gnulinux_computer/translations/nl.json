@@ -225,6 +225,12 @@
       },
       "public_ip": {
         "name": "Publiek IP-adres"
+      },
+      "ip_interface": {
+        "name": "IP {interface}"
+      },
+      "battery_level": {
+        "name": "Accu"
       }
     },
     "update": {

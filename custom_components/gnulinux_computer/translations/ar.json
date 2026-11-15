@@ -225,6 +225,12 @@
       },
       "public_ip": {
         "name": "عنوان IP العام"
+      },
+      "ip_interface": {
+        "name": "IP {interface}"
+      },
+      "battery_level": {
+        "name": "البطارية"
       }
     },
     "update": {
