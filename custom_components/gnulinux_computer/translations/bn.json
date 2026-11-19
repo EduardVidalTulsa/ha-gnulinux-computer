@@ -108,14 +108,6 @@
           "wol_router_password": "পাসওয়ার্ড (ঐচ্ছিক)",
           "wol_router_interface": "ইন্টারফেস (যেমন bridge)"
         }
-      },
-      "wol_ha_mikrotik": {
-        "title": "Home Assistant-এর MikroTik-এর মাধ্যমে Wake-on-LAN",
-        "description": "MikroTik ইন্টিগ্রেশনের সংযোগ ব্যবহার করে (`/tool/wol`)। রাউটারের API ব্যবহারকারীর **test** পলিসি দরকার।",
-        "data": {
-          "wol_ha_mikrotik_entry": "রাউটার",
-          "wol_router_interface": "ইন্টারফেস (যেমন bridge)"
-        }
       }
     },
     "error": {
@@ -128,8 +120,7 @@
       "invalid_unit": "অবৈধ সার্ভিসের নাম"
     },
     "abort": {
-      "no_other_computer": "রিলে হিসেবে কাজ করার মতো অন্য কোনো কম্পিউটার কনফিগার করা নেই",
-      "no_mikrotik": "আগে MikroTik ইন্টিগ্রেশন দিয়ে রাউটারটি যোগ করুন"
+      "no_other_computer": "রিলে হিসেবে কাজ করার মতো অন্য কোনো কম্পিউটার কনফিগার করা নেই"
     }
   },
   "selector": {
@@ -144,7 +135,6 @@
       "options": {
         "local": "Home Assistant থেকে ব্রডকাস্ট (একই নেটওয়ার্ক)",
         "computer": "এই ইন্টিগ্রেশনের অন্য কম্পিউটারের মাধ্যমে",
-        "ha_mikrotik": "Home Assistant-এ যোগ করা MikroTik রাউটারের মাধ্যমে",
         "mikrotik": "MikroTik রাউটারের মাধ্যমে (SSH)"
       }
     }

@@ -108,14 +108,6 @@
           "wol_router_password": "Mot de passe (facultatif)",
           "wol_router_interface": "Interface (p. ex. bridge)"
         }
-      },
-      "wol_ha_mikrotik": {
-        "title": "Wake-on-LAN via un MikroTik de Home Assistant",
-        "description": "Utilise la connexion de l'intégration MikroTik (`/tool/wol`). L'utilisateur de l'API du routeur a besoin de la politique **test**.",
-        "data": {
-          "wol_ha_mikrotik_entry": "Routeur",
-          "wol_router_interface": "Interface (p. ex. bridge)"
-        }
       }
     },
     "error": {
@@ -128,8 +120,7 @@
       "invalid_unit": "Nom de service non valide"
     },
     "abort": {
-      "no_other_computer": "Aucun autre ordinateur configuré ne peut servir de relais",
-      "no_mikrotik": "Ajoutez d'abord le routeur avec l'intégration MikroTik"
+      "no_other_computer": "Aucun autre ordinateur configuré ne peut servir de relais"
     }
   },
   "selector": {
@@ -144,7 +135,6 @@
       "options": {
         "local": "Diffusion depuis Home Assistant (même réseau)",
         "computer": "Via un autre ordinateur de cette intégration",
-        "ha_mikrotik": "Via un routeur MikroTik ajouté à Home Assistant",
         "mikrotik": "Via un routeur MikroTik (SSH)"
       }
     }

@@ -13,7 +13,6 @@ from .client import CannotConnect, CommandError, LinuxClient, load_private_key
 from .const import (
     CONF_BROADCAST,
     CONF_MAC,
-    CONF_WOL_HA_MIKROTIK_ENTRY,
     CONF_WOL_METHOD,
     CONF_WOL_RELAY_ENTRY,
     CONF_WOL_ROUTER_HOST,
@@ -26,7 +25,7 @@ from .const import (
     DEFAULT_BROADCAST,
     DOMAIN,
     WOL_COMPUTER,
-    WOL_HA_MIKROTIK,
+    WOL_LEGACY_HA_MIKROTIK,
     WOL_MIKROTIK,
 )
 from .remote import routeros_wol_command, wol_relay_script
@@ -76,9 +75,11 @@ async def async_wake(hass: HomeAssistant, entry: ConfigEntry) -> None:
             raise HomeAssistantError(f"{relay.title}: {res.stderr.strip() or res.exit_status}")
         return
 
-    if method == WOL_HA_MIKROTIK:
-        await _wake_via_ha_mikrotik(hass, opts, mac)
-        return
+    if method == WOL_LEGACY_HA_MIKROTIK:
+        raise HomeAssistantError(
+            "El Wake-on-LAN a través de la integració MikroTik de Home Assistant ja no "
+            "existeix: tria un altre mètode a les opcions (p. ex. MikroTik per SSH)"
+        )
 
     if method == WOL_MIKROTIK:
         try:
@@ -98,27 +99,3 @@ async def async_wake(hass: HomeAssistant, entry: ConfigEntry) -> None:
         return
 
     await hass.async_add_executor_job(send_magic_packet, mac, broadcast)
-
-
-MIKROTIK_DOMAIN = "mikrotik"
-
-
-async def _wake_via_ha_mikrotik(hass: HomeAssistant, opts: dict, mac: str) -> None:
-    """Reuse the API connection of a router set up with the core MikroTik integration."""
-    router = hass.config_entries.async_get_entry(opts.get(CONF_WOL_HA_MIKROTIK_ENTRY, ""))
-    if router is None or router.domain != MIKROTIK_DOMAIN:
-        raise HomeAssistantError("El router MikroTik triat ja no existeix a Home Assistant")
-    hub = getattr(router, "runtime_data", None)
-    api = getattr(hub, "api", None)
-    if api is None or not hasattr(api, "command"):
-        raise HomeAssistantError(f"El router {router.title} no està carregat a Home Assistant")
-    params = {"mac": mac.upper()}
-    if iface := opts.get(CONF_WOL_ROUTER_INTERFACE):
-        params["interface"] = iface
-    try:
-        await hass.async_add_executor_job(api.command, "/tool/wol", params)
-    except Exception as err:  # noqa: BLE001 - librouteros / core errors vary
-        raise HomeAssistantError(
-            f"{router.title}: no s'ha pogut enviar el WoL ({err}). "
-            "L'usuari de l'API necessita la política 'test'."
-        ) from err

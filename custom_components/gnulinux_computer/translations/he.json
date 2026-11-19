@@ -108,14 +108,6 @@
           "wol_router_password": "סיסמה (אופציונלי)",
           "wol_router_interface": "ממשק (למשל bridge)"
         }
-      },
-      "wol_ha_mikrotik": {
-        "title": "Wake-on-LAN דרך MikroTik של Home Assistant",
-        "description": "משתמש בחיבור של אינטגרציית MikroTik ‏(`/tool/wol`). משתמש ה-API של הנתב צריך את המדיניות **test**.",
-        "data": {
-          "wol_ha_mikrotik_entry": "נתב",
-          "wol_router_interface": "ממשק (למשל bridge)"
-        }
       }
     },
     "error": {
@@ -128,8 +120,7 @@
       "invalid_unit": "שם שירות לא תקין"
     },
     "abort": {
-      "no_other_computer": "אין מחשב אחר מוגדר שיכול לשמש כממסר",
-      "no_mikrotik": "קודם הוסף את הנתב באמצעות אינטגרציית MikroTik"
+      "no_other_computer": "אין מחשב אחר מוגדר שיכול לשמש כממסר"
     }
   },
   "selector": {
@@ -144,7 +135,6 @@
       "options": {
         "local": "שידור מ-Home Assistant (אותה רשת)",
         "computer": "דרך מחשב אחר של האינטגרציה הזו",
-        "ha_mikrotik": "דרך נתב MikroTik שנוסף ל-Home Assistant",
         "mikrotik": "דרך נתב MikroTik ‏(SSH)"
       }
     }

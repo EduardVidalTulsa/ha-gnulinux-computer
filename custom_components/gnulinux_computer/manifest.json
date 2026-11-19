@@ -1,9 +1,6 @@
 {
   "domain": "gnulinux_computer",
   "name": "GNU+Linux Computer",
-  "after_dependencies": [
-    "mikrotik"
-  ],
   "codeowners": [
     "@EduardVidalTulsa"
   ],
@@ -21,5 +18,5 @@
   "requirements": [
     "asyncssh>=2.14.2"
   ],
-  "version": "0.3.7"
+  "version": "0.3.8"
 }

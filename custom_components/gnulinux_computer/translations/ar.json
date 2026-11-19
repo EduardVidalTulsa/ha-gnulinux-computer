@@ -108,14 +108,6 @@
           "wol_router_password": "كلمة المرور (اختياري)",
           "wol_router_interface": "الواجهة (مثل bridge)"
         }
-      },
-      "wol_ha_mikrotik": {
-        "title": "Wake-on-LAN عبر MikroTik مضاف إلى Home Assistant",
-        "description": "يستخدم اتصال تكامل MikroTik ‏(`/tool/wol`). يحتاج مستخدم API في الموجّه إلى الصلاحية **test**.",
-        "data": {
-          "wol_ha_mikrotik_entry": "الموجّه",
-          "wol_router_interface": "الواجهة (مثل bridge)"
-        }
       }
     },
     "error": {
@@ -128,8 +120,7 @@
       "invalid_unit": "اسم خدمة غير صالح"
     },
     "abort": {
-      "no_other_computer": "لا يوجد حاسوب آخر مُعدّ ليعمل وسيطًا",
-      "no_mikrotik": "أضف الموجّه أولًا عبر تكامل MikroTik"
+      "no_other_computer": "لا يوجد حاسوب آخر مُعدّ ليعمل وسيطًا"
     }
   },
   "selector": {
@@ -144,7 +135,6 @@
       "options": {
         "local": "بث من Home Assistant (الشبكة نفسها)",
         "computer": "عبر حاسوب آخر في هذا التكامل",
-        "ha_mikrotik": "عبر موجّه MikroTik مضاف إلى Home Assistant",
         "mikrotik": "عبر موجّه MikroTik ‏(SSH)"
       }
     }

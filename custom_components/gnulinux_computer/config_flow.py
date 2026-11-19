@@ -57,7 +57,6 @@ from .const import (
     DOMAIN,
     KEY_DIR,
     SHARED_KEY_PATH,
-    CONF_WOL_HA_MIKROTIK_ENTRY,
     CONF_WOL_METHOD,
     CONF_WOL_RELAY_ENTRY,
     CONF_WOL_ROUTER_HOST,
@@ -68,7 +67,6 @@ from .const import (
     CONF_WOL_ROUTER_PORT,
     CONF_WOL_ROUTER_USER,
     WOL_COMPUTER,
-    WOL_HA_MIKROTIK,
     WOL_LOCAL,
     WOL_MIKROTIK,
 )
@@ -483,8 +481,6 @@ class GLOptionsFlow(OptionsFlow):
                     return await self.async_step_wol_computer()
                 if method == WOL_MIKROTIK:
                     return await self.async_step_wol_mikrotik()
-                if method == WOL_HA_MIKROTIK:
-                    return await self.async_step_wol_ha_mikrotik()
                 return self.async_create_entry(data=self._clean())
 
         units: list[str] = list(current.get(CONF_UNITS, []))
@@ -537,10 +533,13 @@ class GLOptionsFlow(OptionsFlow):
                 ): bool,
                 vol.Optional(CONF_MAC, default=current.get(CONF_MAC, "")): str,
                 vol.Optional(
-                    CONF_WOL_METHOD, default=current.get(CONF_WOL_METHOD, WOL_LOCAL)
+                    CONF_WOL_METHOD,
+                    default=current.get(CONF_WOL_METHOD)
+                    if current.get(CONF_WOL_METHOD) in (WOL_LOCAL, WOL_COMPUTER, WOL_MIKROTIK)
+                    else WOL_LOCAL,
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=[WOL_LOCAL, WOL_COMPUTER, WOL_HA_MIKROTIK, WOL_MIKROTIK],
+                        options=[WOL_LOCAL, WOL_COMPUTER, WOL_MIKROTIK],
                         translation_key=CONF_WOL_METHOD,
                         mode=selector.SelectSelectorMode.LIST,
                     )
@@ -558,51 +557,16 @@ class GLOptionsFlow(OptionsFlow):
         out = {}
         for key, value in self._opts.items():
             if key == CONF_WOL_ROUTER_INTERFACE:
-                if method not in (WOL_MIKROTIK, WOL_HA_MIKROTIK):
+                if method != WOL_MIKROTIK:
                     continue
             elif key.startswith("wol_router_") and method != WOL_MIKROTIK:
                 continue
             elif key == CONF_WOL_RELAY_ENTRY and method != WOL_COMPUTER:
                 continue
-            elif key == CONF_WOL_HA_MIKROTIK_ENTRY and method != WOL_HA_MIKROTIK:
+            elif key == "wol_ha_mikrotik_entry":  # left over from the removed method
                 continue
             out[key] = value
         return out
-
-    async def async_step_wol_ha_mikrotik(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Choose a router of the core MikroTik integration."""
-        routers = self.hass.config_entries.async_entries("mikrotik")
-        if not routers:
-            return self.async_abort(reason="no_mikrotik")
-        if user_input is not None:
-            self._opts.update(user_input)
-            return self.async_create_entry(data=self._clean())
-        return self.async_show_form(
-            step_id="wol_ha_mikrotik",
-            data_schema=self.add_suggested_values_to_schema(
-                vol.Schema(
-                    {
-                        vol.Required(CONF_WOL_HA_MIKROTIK_ENTRY): selector.SelectSelector(
-                            selector.SelectSelectorConfig(
-                                options=[
-                                    selector.SelectOptionDict(value=e.entry_id, label=e.title)
-                                    for e in routers
-                                ]
-                            )
-                        ),
-                        vol.Optional(CONF_WOL_ROUTER_INTERFACE): str,
-                    }
-                ),
-                {
-                    CONF_WOL_HA_MIKROTIK_ENTRY: self._opts.get(
-                        CONF_WOL_HA_MIKROTIK_ENTRY, routers[0].entry_id
-                    ),
-                    CONF_WOL_ROUTER_INTERFACE: self._opts.get(CONF_WOL_ROUTER_INTERFACE, "bridge"),
-                },
-            ),
-        )
 
     async def async_step_wol_computer(
         self, user_input: dict[str, Any] | None = None

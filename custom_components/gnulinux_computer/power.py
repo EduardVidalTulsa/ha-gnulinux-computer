@@ -123,8 +123,13 @@ class RaplTracker:
         for key, (uj, max_uj, ns) in samples.items():
             if (prev := self._last.get(key)) is not None:
                 d_uj = uj - prev[0]
-                if d_uj < 0:  # counter wrapped
-                    d_uj += max_uj or prev[1]
+                if d_uj < 0:
+                    max_range = max_uj or prev[1]
+                    if not max_range or prev[0] < max_range // 2:
+                        # Not near the top, so not a wrap: the counter restarted
+                        # (reboot). Adding the whole range would show hundreds of W.
+                        continue
+                    d_uj += max_range  # counter wrapped
                 d_s = (ns - prev[2]) / 1e9
                 if d_s > 0:
                     self.watts[key] = round(d_uj / 1e6 / d_s, 1)

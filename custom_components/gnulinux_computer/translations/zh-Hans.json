@@ -108,14 +108,6 @@
           "wol_router_password": "密码（可选）",
           "wol_router_interface": "接口（例如 bridge）"
         }
-      },
-      "wol_ha_mikrotik": {
-        "title": "通过 Home Assistant 中的 MikroTik 进行 Wake-on-LAN",
-        "description": "使用 MikroTik 集成的连接（`/tool/wol`）。路由器的 API 用户需要 **test** 策略。",
-        "data": {
-          "wol_ha_mikrotik_entry": "路由器",
-          "wol_router_interface": "接口（例如 bridge）"
-        }
       }
     },
     "error": {
@@ -128,8 +120,7 @@
       "invalid_unit": "服务名称无效"
     },
     "abort": {
-      "no_other_computer": "没有配置其他可用作中继的计算机",
-      "no_mikrotik": "请先通过 MikroTik 集成添加路由器"
+      "no_other_computer": "没有配置其他可用作中继的计算机"
     }
   },
   "selector": {
@@ -144,7 +135,6 @@
       "options": {
         "local": "从 Home Assistant 广播（同一网络）",
         "computer": "通过本集成中的另一台计算机",
-        "ha_mikrotik": "通过已添加到 Home Assistant 的 MikroTik 路由器",
         "mikrotik": "通过 MikroTik 路由器（SSH）"
       }
     }
