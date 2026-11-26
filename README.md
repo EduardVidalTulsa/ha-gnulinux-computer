@@ -36,6 +36,32 @@ SysV init.
 | **System** | Online, load, memory, boot time, init system state and, on laptops, battery level sensors. |
 | **Network** | **Connection** sensor: Ethernet, mobile data, VPN, or `Wi-Fi (network name)`, by the interface of the default route (type, interface and SSID as attributes). **IP address** sensor (address of the default route), one **IP &lt;interface&gt;** sensor per network interface (LAN, Wi-Fi, mobile data, Tailscale, WireGuard…) and **Public IP** sensor (IPv4 and IPv6 as seen from the Internet; the computer asks `api.ipify.org` every 5 minutes — can be turned off in the options). |
 
+## How it compares
+
+Most other ways to bring a Linux computer into Home Assistant are **companion
+agents** (Go Hass Agent, System Bridge, Deskmate, halinuxcompanion, KDE
+Connect based ones…): a program installed on the computer, usually running in
+the user's desktop session. They are the right tool for *the PC in front of
+you*. This integration is meant for **managing machines**, headless servers
+included:
+
+- **Agentless**: nothing to install or keep running on the computer, only an
+  SSH server and `sudo`/`doas`. It works the same on a desktop, a Raspberry Pi
+  or a server without a graphical session.
+- **Updates you can install**, not just a sensor: every package manager listed
+  above plus container images, as native `update` entities, run as detached
+  jobs in a safe order.
+- **Administration**: reboot required (with a repair that reboots), services,
+  custom commands, Wake-on-LAN across networks, several distributions and init
+  systems.
+
+What it does **not** do: notifications on the computer, active window, idle or
+lock state, camera/microphone, media, brightness or volume. It polls (every 30
+seconds by default) instead of pushing. And it needs SSH access with root
+rights, which is more trust than an unprivileged agent: see
+[Security](#security). The two kinds work well together, e.g. this
+integration to keep machines updated and a companion agent on your desktop.
+
 ## Installation
 
 ### Marketplace / HACS
@@ -240,6 +266,17 @@ Integració per controlar ordinadors GNU/Linux des de Home Assistant per SSH:
 - **Energia**: encès (Wake-on-LAN), suspès (RAM), hibernat (disc), apagat i
   reinici. Si l'ordinador és en una altra xarxa, el paquet màgic el pot enviar
   un altre ordinador de la integració o un router MikroTik d'aquella xarxa (per SSH).
+
+**Comparat amb altres opcions**: la majoria (Go Hass Agent, System Bridge,
+Deskmate, halinuxcompanion, KDE Connect…) són **agents** que s'instal·len a
+l'ordinador i solen córrer a la sessió d'escriptori; són ideals per al PC que
+tens davant. Aquesta integració és per **administrar màquines**, servidors
+inclosos: no s'hi instal·la res (només SSH i `sudo`/`doas`), instal·la les
+actualitzacions de tots els gestors de paquets i dels contenidors, i gestiona
+reinicis, serveis, ordres i Wake-on-LAN. No fa notificacions a l'ordinador, ni
+estat d'inactivitat/bloqueig, càmera, multimèdia, brillantor o volum; consulta
+cada 30 s en lloc de rebre avisos, i necessita accés SSH amb permisos de root.
+Les dues coses es complementen.
 
 Instal·lació: Marketplace/HACS → *Repositoris personalitzats* →
 `https://github.com/EduardVidalTulsa/ha-gnulinux-computer` (Integració).
