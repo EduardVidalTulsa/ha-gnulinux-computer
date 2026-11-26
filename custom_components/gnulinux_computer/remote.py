@@ -1180,7 +1180,7 @@ for p in "$D"/*.pid; do
   if kill -0 "$(cat "$p")" 2>/dev/null; then echo "@busy $(basename "$p" .pid)"; exit 0; fi
   rm -f "$p"
 done
-J="$D/{name}"; rm -f "$J.rc" "$J.log" "$J.started"
+J="$D/{name}"; rm -f "$J.rc" "$J.log" "$J.started" "$J.step"
 cat > "$J.payload" <<'GLCPAYLOAD'
 {payload}
 GLCPAYLOAD
@@ -1195,6 +1195,7 @@ echo "@started {name}"
 _JOB_REPORT = """echo "@job $(basename "$J")"
 echo "@started $(cat "$J.started" 2>/dev/null)"
 [ -f "$J.rc" ] && echo "@finished $(stat -c %Y "$J.rc")"
+[ -f "$J.step" ] && echo "@step $(cat "$J.step")"
 if [ -f "$J.rc" ]; then echo "@done"; cat "$J.rc"
 elif [ -f "$J.pid" ] && kill -0 "$(cat "$J.pid")" 2>/dev/null; then echo "@running"
 else echo "@missing"; fi
@@ -1235,6 +1236,7 @@ class JobState:
     job: str | None = None
     started: int | None = None  # epoch seconds
     finished: int | None = None
+    step: tuple[int, int, str] | None = None  # update-all: (number, of, target)
 
 
 def parse_job_status(text: str) -> JobState:
@@ -1252,7 +1254,7 @@ def parse_job_status(text: str) -> JobState:
     meta: dict[str, str] = {}
     for line in lines:
         key, _, value = line.partition(" ")
-        if key in ("@job", "@started", "@finished"):
+        if key in ("@job", "@started", "@finished", "@step"):
             meta[key[1:]] = value.strip()
 
     def _int(v: str | None) -> int | None:
@@ -1261,9 +1263,14 @@ def parse_job_status(text: str) -> JobState:
         except ValueError:
             return None
 
+    step = None
+    parts = meta.get("step", "").split()
+    if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+        step = (int(parts[0]), int(parts[1]), parts[2])
     return JobState(
         state, rc, log, job=meta.get("job") or None,
         started=_int(meta.get("started")), finished=_int(meta.get("finished")),
+        step=step,
     )
 
 

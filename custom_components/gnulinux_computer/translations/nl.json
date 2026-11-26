@@ -267,6 +267,9 @@
       },
       "ostree": {
         "name": "Systeemimage (rpm-ostree / bootc)"
+      },
+      "system": {
+        "name": "Systeemupdates"
       }
     },
     "select": {
@@ -385,6 +388,24 @@
         "remove_old_key": {
           "name": "De oude sleutel verwijderen",
           "description": "Verwijdert de sleutel per computer die deze integratie eerder had gegenereerd van de computer."
+        }
+      }
+    }
+  },
+  "issues": {
+    "reboot_required": {
+      "title": "{name} moet opnieuw opstarten",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "{name} opnieuw opstarten",
+            "description": "**{name}** draait oudere software dan wat geïnstalleerd is; de wijzigingen werken pas na een herstart:\n\n{reasons}\n\n**{name}** nu opnieuw opstarten? Niet-opgeslagen werk gaat verloren."
+          }
+        },
+        "abort": {
+          "not_loaded": "De computer is niet geladen in Home Assistant.",
+          "updating": "Er worden updates geïnstalleerd op deze computer: wacht tot ze klaar zijn.",
+          "reboot_failed": "Kon {name} niet opnieuw opstarten: {error}"
         }
       }
     }

@@ -267,6 +267,9 @@
       },
       "ostree": {
         "name": "Image système (rpm-ostree / bootc)"
+      },
+      "system": {
+        "name": "Mises à jour du système"
       }
     },
     "select": {
@@ -385,6 +388,24 @@
         "remove_old_key": {
           "name": "Supprimer l'ancienne clé",
           "description": "Supprime de l'ordinateur la clé individuelle que cette intégration avait générée auparavant."
+        }
+      }
+    }
+  },
+  "issues": {
+    "reboot_required": {
+      "title": "{name} doit redémarrer",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Redémarrer {name}",
+            "description": "**{name}** exécute des logiciels plus anciens que ceux installés ; les changements ne prendront effet qu'après un redémarrage :\n\n{reasons}\n\nRedémarrer **{name}** maintenant ? Le travail non enregistré sera perdu."
+          }
+        },
+        "abort": {
+          "not_loaded": "L'ordinateur n'est pas chargé dans Home Assistant.",
+          "updating": "Des mises à jour sont en cours d'installation sur cet ordinateur : attendez qu'elles se terminent.",
+          "reboot_failed": "Impossible de redémarrer {name} : {error}"
         }
       }
     }

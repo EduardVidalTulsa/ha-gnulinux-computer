@@ -18,12 +18,13 @@ SysV init.
 
 | | |
 |---|---|
-| **Package updates** | One `update` entity per source: **pacman**, **AUR** (yay/paru), **DNF** (dnf5, dnf, yum), **rpm-ostree / bootc** (Fedora Atomic, CoreOS, RHEL image mode), **zypper**, **APT**, **apk** (Alpine), **Flatpak**, **Snap** and **firmware** (fwupd) — the same sources Plasma Discover and GNOME Software show. Release notes list every package with its current and new version. *Install* runs the upgrade. |
-| **Update all** | A button that upgrades everything in a safe order: system packages, AUR, Flatpak, Snap, then containers. Failures are reported in a notification. |
+| **System updates** | One `update` entity per computer, so **Settings** lists each computer once. Its release notes show the install plan — which sources, in which order — and every pending package and container. *Install* runs everything as one detached job, **one source after another, never at the same time**: system packages first, then AUR, Flatpak, Snap and containers. If the system package manager fails, it stops there and nothing else is installed. Progress (step *n* of *m*) is shown while it runs. Firmware is not included. |
+| **Package updates** | One `update` entity per source (disabled by default; enable them if you prefer to install source by source): **pacman**, **AUR** (yay/paru), **DNF** (dnf5, dnf, yum), **rpm-ostree / bootc** (Fedora Atomic, CoreOS, RHEL image mode), **zypper**, **APT**, **apk** (Alpine), **Flatpak**, **Snap** and **firmware** (fwupd) — the same sources Plasma Discover and GNOME Software show. Release notes list every package with its current and new version. *Install* runs the upgrade. |
+| **Update all** | A button that does the same as installing the *System updates* entity (handy in automations). Failures are reported in a notification. |
 | **Update output** | Updates run detached on the computer (they survive a restart of Home Assistant). The **Last update** sensor shows *running / successful / failed*, what ran, when, the exit code and the last lines of output (refreshed live while running). The `gnulinux_computer.update_log` action returns the full output. |
 | **Notifications** | A persistent notification when new updates appear, and the `gnulinux_computer_updates_available` event to build your own (mobile) notifications. |
-| **Containers** | Only when a Docker or Podman daemon is running: one `update` entity per container, comparing the local image digest with the registry (HEAD requests only, nothing is pulled). Containers managed by **docker compose** or **Podman quadlets** can be updated from Home Assistant. |
-| **Reboot required** | On when the running kernel or NVIDIA driver no longer matches the installed one, or when the distribution asks for it (`/run/reboot-required`, `needs-restarting`, …). |
+| **Containers** | Only when a Docker or Podman daemon is running: one `update` entity per container (disabled by default, they are part of *System updates*), comparing the local image digest with the registry (HEAD requests only, nothing is pulled). Containers managed by **docker compose** or **Podman quadlets** can be updated from Home Assistant. |
+| **Reboot required** | On when the running kernel or NVIDIA driver no longer matches the installed one, or when the distribution asks for it (`/run/reboot-required`, `needs-restarting`, …). It also raises an issue in **Settings → Repairs** saying why; fixing it reboots the computer (refused while updates are being installed). |
 | **Services** | Failed services; running / enabled / disabled service lists; one binary sensor per service you choose to monitor; `gnulinux_computer.service_control` action (start, stop, restart, reload, enable, disable). systemd, OpenRC (`rc-service`) and SysV (`service`). |
 | **Custom commands** | Define your own commands per computer in the options (`Name = shell command`, one per line). Each one becomes a **button**; the `gnulinux_computer.run_command` action runs one by name and returns exit code and output, and the `gnulinux_computer_command_finished` event fires when it ends. Only commands written in the options can run: there is no action that accepts free text. |
 | **Location** | Computers with a GNSS receiver (gpsd or ModemManager) get a `device_tracker` with their position (tested with gpsd; the ModemManager source is untested). Without a receiver (or without a fix), an option (off by default) uses the public IP. A computer with **the same public IP as Home Assistant** shares its Internet connection, so it is placed at home (`fix_source: home_network`). Any other is placed **approximately from its public IP**: Home Assistant asks `ipwho.is` once per address change. That is city level at best and can be far off (mobile operators, VPNs), so it is reported with a 25 km accuracy radius and `fix_source: ip`, together with city, country and whether it is in the EU. The tracker's state is then the city instead of a zone (never `home` by guess). A real GNSS fix always takes precedence and the last one is kept across restarts. |
@@ -219,13 +220,19 @@ Integració per controlar ordinadors GNU/Linux des de Home Assistant per SSH:
 - **Ubicació aproximada per la IP pública** (opcional) quan no hi ha GPS.
 - **Ubicació** (GPS amb gpsd, provat; o ModemManager, sense provar) i **perfil eSIM**
   (lpac, encara sense provar amb maquinari real).
-- **Actualitzacions** de pacman, AUR, DNF/yum, rpm-ostree, zypper, APT, apk, Flatpak, Snap i
-  microprogramari, amb botó d'instal·lar i botó **Actualitza-ho tot**.
+- **Actualitzacions del sistema**: una sola entitat per ordinador (a **Configuració**
+  surt un cop per màquina) que ho instal·la tot en una sola tasca, **una font darrere
+  l'altra i mai a la vegada**: paquets del sistema, AUR, Flatpak, Snap i contenidors.
+  Si fallen els paquets del sistema, s'atura. Les notes mostren l'ordre i tots els paquets.
+- **Actualitzacions per font** de pacman, AUR, DNF/yum, rpm-ostree, zypper, APT, apk, Flatpak,
+  Snap i microprogramari (desactivades per defecte, excepte el microprogramari), i botó
+  **Actualitza-ho tot**.
 - **Notificació** quan apareixen actualitzacions noves.
 - **Contenidors** Docker/Podman (només si el dimoni està en marxa): avisa quan hi
   ha imatge nova i actualitza els de compose/quadlet.
 - **Cal reiniciar** quan el nucli o el controlador NVIDIA en marxa no és
-  l'instal·lat.
+  l'instal·lat; també surt a **Configuració → Reparacions**, i reparar-ho reinicia
+  l'ordinador (no mentre s'instal·len actualitzacions).
 - **Serveis**: fallats, en marxa, activats i desactivats; sensors dels serveis
   que triïs i acció per iniciar-los, aturar-los, etc.
 - **Volums**: percentatge ocupat de cada sistema de fitxers.

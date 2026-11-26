@@ -267,6 +267,9 @@
       },
       "ostree": {
         "name": "Imagem do sistema (rpm-ostree / bootc)"
+      },
+      "system": {
+        "name": "Atualizações do sistema"
       }
     },
     "select": {
@@ -385,6 +388,24 @@
         "remove_old_key": {
           "name": "Remover a chave antiga",
           "description": "Remove do computador a chave individual que esta integração tinha gerado antes."
+        }
+      }
+    }
+  },
+  "issues": {
+    "reboot_required": {
+      "title": "{name} precisa de reiniciar",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Reiniciar {name}",
+            "description": "**{name}** está a executar software mais antigo do que o instalado; as alterações só terão efeito após reiniciar:\n\n{reasons}\n\nReiniciar **{name}** agora? O trabalho não guardado será perdido."
+          }
+        },
+        "abort": {
+          "not_loaded": "O computador não está carregado no Home Assistant.",
+          "updating": "Estão a ser instaladas atualizações neste computador: aguarde que terminem.",
+          "reboot_failed": "Não foi possível reiniciar {name}: {error}"
         }
       }
     }

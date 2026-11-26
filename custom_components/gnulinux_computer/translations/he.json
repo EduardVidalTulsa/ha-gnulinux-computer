@@ -267,6 +267,9 @@
       },
       "ostree": {
         "name": "תמונת מערכת (rpm-ostree / bootc)"
+      },
+      "system": {
+        "name": "עדכוני מערכת"
       }
     },
     "select": {
@@ -385,6 +388,24 @@
         "remove_old_key": {
           "name": "הסר את המפתח הישן",
           "description": "מסיר מהמחשב את המפתח הייעודי שהאינטגרציה הזו יצרה קודם לכן."
+        }
+      }
+    }
+  },
+  "issues": {
+    "reboot_required": {
+      "title": "‏{name} צריך הפעלה מחדש",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "הפעלה מחדש של {name}",
+            "description": "‏**{name}** מריץ תוכנה ישנה מזו המותקנת; השינויים ייכנסו לתוקף רק לאחר הפעלה מחדש:\n\n{reasons}\n\nלהפעיל מחדש את **{name}** עכשיו? עבודה שלא נשמרה תאבד."
+          }
+        },
+        "abort": {
+          "not_loaded": "המחשב אינו טעון ב-Home Assistant.",
+          "updating": "מותקנים עדכונים במחשב זה: המתן עד שיסתיימו.",
+          "reboot_failed": "לא ניתן להפעיל מחדש את {name}: {error}"
         }
       }
     }

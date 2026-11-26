@@ -18,6 +18,7 @@ import aiohttp
 from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -100,6 +101,11 @@ JOB_TIMEOUT = 4 * 3600
 
 # System packages first, then the AUR (may depend on them), then the rest.
 INSTALL_ORDER = ("pacman", "dnf", "ostree", "zypper", "apt", "apk", "aur", "flatpak", "snap")
+# If one of these fails during "update all", nothing after it is installed:
+# AUR builds, Flatpaks and new container images on a half-upgraded system
+# only make things worse.
+SYSTEM_BACKENDS = frozenset({"pacman", "dnf", "ostree", "zypper", "apt", "apk"})
+REBOOT_ISSUE = "reboot_required"
 
 
 @dataclass
@@ -182,6 +188,7 @@ class StatusCoordinator(DataUpdateCoordinator[StatusData]):
         if slow:
             self._last_slow = now
         data = parse_status(str(res.stdout), self.units)
+        self._sync_reboot_issue(data.reboot_reasons)
         self.power = compute_power(data.sections, self.rapl, self.power)
         if data.location is not None:
             self.location = data.location  # fast polls do not read the position
@@ -189,6 +196,27 @@ class StatusCoordinator(DataUpdateCoordinator[StatusData]):
             self.public_ip = data.public_ip
             await self._locate_by_ip(fresh_fix=data.location is not None)
         return data
+
+    def _sync_reboot_issue(self, reasons: list[str]) -> None:
+        """Show "reboot required" under Settings → Repairs (with a fix that reboots)."""
+        issue_id = reboot_issue_id(self.config_entry.entry_id)
+        if not reasons:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            return
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=True,
+            is_persistent=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=REBOOT_ISSUE,
+            translation_placeholders={
+                "name": self.config_entry.title,
+                "reasons": "\n".join(f"- {r}" for r in reasons),
+            },
+            data={"entry_id": self.config_entry.entry_id},
+        )
 
     async def _ha_public_ip(self) -> str | None:
         """Public IPv4 of Home Assistant itself (shared by all entries, 5 min cache)."""
@@ -270,6 +298,7 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
         self.status = status
         self.installing: set[str] = set()
         self.updating_all = False
+        self.all_targets: list[str] = []  # what the running "update all" covers
         self.last_job: JobState | None = None
         self._store: Store[dict] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}")
         self._known: set[str] | None = None
@@ -518,20 +547,36 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
         targets = self.pending_targets()
         if not targets:
             return
-        parts = []
-        for target in targets:
-            body = self._install_command(target)
-            parts.append(
-                f'echo "@@target {target}"\n( {body}\n)\necho "@@rc {target} $?"'
-            )
-        payload = "\n".join(parts) + "\nexit 0"
+        payload = self._install_all_payload(targets)
         self.updating_all = True
+        self.all_targets = targets
         try:
             st = await self._run_job(JOB_ALL, payload, targets)
         finally:
             self.updating_all = False
+            self.all_targets = []
             await self.async_refresh()
         self._report(st, _parse_rcs(st.log))
+
+    def _install_all_payload(self, targets: list[str]) -> str:
+        """One source after another, never at the same time.
+
+        Stops after a failed system package manager; the rest go on.
+        """
+        parts = []
+        for i, target in enumerate(targets, 1):
+            body = self._install_command(target)
+            stop = (
+                f'[ "$rc" -eq 0 ] || {{ echo "@@abort {target}"; exit 0; }}\n'
+                if target in SYSTEM_BACKENDS
+                else ""
+            )
+            parts.append(
+                f'echo "{i} {len(targets)} {target}" > "$J.step"\n'
+                f'echo "@@target {target}"\n( {body}\n)\nrc=$?\n'
+                f'echo "@@rc {target} $rc"\n{stop}'
+            )
+        return "\n".join(parts) + "\nexit 0"
 
     async def _refresh_last_job(self) -> None:
         try:
@@ -566,10 +611,12 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
     async def _resume(self, job: str, targets: list[str]) -> None:
         if job == JOB_ALL:
             self.updating_all = True
+            self.all_targets = targets
         try:
             st = await self._run_job(job, "", targets, start=False)
         finally:
             self.updating_all = False
+            self.all_targets = []
             await self.async_refresh()
         try:
             self._report(st, _parse_rcs(st.log) if job == JOB_ALL else {job: st.rc})
@@ -579,6 +626,9 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
     def _report(self, st: JobState, rcs: dict[str, int | None]) -> None:
         """Notify and raise when a job (or part of it) failed."""
         failed = {t: rc for t, rc in rcs.items() if rc not in (0, None)}
+        aborted = next(
+            (line.split()[1] for line in st.log.splitlines() if line.startswith("@@abort ")), None
+        )
         if st.state == "timeout":
             msg = "L'actualització encara no ha acabat després de 4 hores."
         elif st.state == "missing":
@@ -586,7 +636,13 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
         elif failed or st.rc not in (0, None):
             tail = st.log.strip()[-1500:]
             what = ", ".join(f"{t} (codi {rc})" for t, rc in failed.items()) or f"codi {st.rc}"
-            msg = f"Ha fallat: {what}\n\n```\n{tail}\n```"
+            msg = f"Ha fallat: {what}"
+            if aborted:
+                msg += (
+                    f"\n\nCom que ha fallat {BACKEND_LABELS.get(aborted, aborted)}, "
+                    "no s'ha instal·lat res més (AUR, Flatpak, contenidors...)."
+                )
+            msg += f"\n\n```\n{tail}\n```"
         else:
             persistent_notification.async_dismiss(
                 self.hass, f"{DOMAIN}_{self.config_entry.entry_id}_errors"
@@ -599,6 +655,11 @@ class UpdatesCoordinator(DataUpdateCoordinator[UpdatesData]):
             notification_id=f"{DOMAIN}_{self.config_entry.entry_id}_errors",
         )
         raise HomeAssistantError(msg.split("\n", 1)[0])
+
+
+def reboot_issue_id(entry_id: str) -> str:
+    """Repair issue of one computer."""
+    return f"{REBOOT_ISSUE}_{entry_id}"
 
 
 def _parse_rcs(log: str) -> dict[str, int | None]:

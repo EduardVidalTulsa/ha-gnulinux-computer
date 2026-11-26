@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Eduard Vidal Tulsà
-"""Update entities: one per package source and one per container."""
+"""Update entities.
+
+One per computer ("System") that installs everything, one source after
+another, so Settings shows one line per computer. The per-source and
+per-container entities stay available but are disabled by default.
+"""
 
 from __future__ import annotations
 
@@ -9,12 +14,13 @@ from typing import Any
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import GLConfigEntry
-from .const import BACKEND_FIRMWARE
-from .coordinator import BACKEND_LABELS, UpdatesCoordinator
+from .const import BACKEND_FIRMWARE, CONF_OS_NAME
+from .coordinator import BACKEND_LABELS, INSTALL_ORDER, SYSTEM_BACKENDS, UpdatesCoordinator
 from .entity import GLEntity
 
 UP_TO_DATE = "al dia"
@@ -26,6 +32,7 @@ async def async_setup_entry(
     """Set up update entities, adding new ones as sources/containers appear."""
     rt = entry.runtime_data
     known: set[str] = set()
+    async_add_entities([SystemUpdate(entry, rt)])
 
     @callback
     def add_new() -> None:
@@ -63,10 +70,158 @@ class _Base(GLEntity, CoordinatorEntity[UpdatesCoordinator], UpdateEntity):
         await self.coordinator.async_install(self._target)
 
 
+def _package_table(packages) -> str:
+    rows = "\n".join(f"| {p.name} | {p.current or ''} | {p.new or ''} |" for p in packages)
+    return f"| Paquet | Actual | Nova |\n|---|---|---|\n{rows}"
+
+
+def _plural(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+class SystemUpdate(_Base):
+    """Everything pending on the computer, installed as one ordered job."""
+
+    _attr_translation_key = "system"
+    _attr_supported_features = (
+        UpdateEntityFeature.INSTALL
+        | UpdateEntityFeature.RELEASE_NOTES
+        | UpdateEntityFeature.PROGRESS
+    )
+
+    def __init__(self, entry: GLConfigEntry, rt) -> None:
+        """Initialize."""
+        super().__init__(entry, rt, "updates_system")
+        self._target = "system"
+        self._attr_title = entry.data.get(CONF_OS_NAME) or None
+
+    def _pending(self):
+        """(sources with packages in install order, installable containers, manual containers)."""
+        data = self.coordinator.data
+        if data is None:
+            return [], [], []
+        order = [k for k in INSTALL_ORDER if k in data.backends]
+        order += [k for k in data.backends if k not in order and k != BACKEND_FIRMWARE]
+        sources = [data.backends[k] for k in order if data.backends[k].packages]
+        cts = [c for c in data.containers.values() if c.update_available]
+        return (
+            sources,
+            [c for c in cts if c.install_command],
+            [c for c in cts if not c.install_command],
+        )
+
+    @property
+    def available(self) -> bool:
+        """Available once checked."""
+        return self.coordinator.data is not None
+
+    @property
+    def in_progress(self) -> bool:
+        """While "update all" runs (from here or from the button)."""
+        return self.coordinator.updating_all
+
+    @property
+    def update_percentage(self) -> int | None:
+        """Share of the sources already done."""
+        job = self.coordinator.last_job
+        if not self.coordinator.updating_all or job is None or job.step is None:
+            return None
+        number, total, _ = job.step
+        return int(100 * (number - 1) / total) if total else None
+
+    @property
+    def installed_version(self) -> str:
+        """Pseudo version."""
+        return UP_TO_DATE
+
+    @property
+    def latest_version(self) -> str:
+        """Count + fingerprint of everything pending (skipping works per set)."""
+        sources, auto, manual = self._pending()
+        keys = sorted(
+            [f"{b.key}:{p.name}={p.new}" for b in sources for p in b.packages]
+            + [f"ct:{c.key}:{c.remote_digest}" for c in auto + manual]
+        )
+        if not keys:
+            return UP_TO_DATE
+        digest = hashlib.sha1("|".join(keys).encode()).hexdigest()[:6]
+        return f"{len(keys)} pendents ({digest})"
+
+    @property
+    def release_summary(self) -> str | None:
+        """One line: what, in which order."""
+        job = self.coordinator.last_job
+        if self.coordinator.updating_all and job is not None and job.step is not None:
+            number, total, target = job.step
+            label = BACKEND_LABELS.get(target, target.removeprefix("ct:"))
+            return f"Instal·lant {number}/{total}: {label}"
+        sources, auto, manual = self._pending()
+        parts = [f"{BACKEND_LABELS.get(b.key, b.key)} {len(b.packages)}" for b in sources]
+        if auto or manual:
+            parts.append(_plural(len(auto) + len(manual), "contenidor", "contenidors"))
+        text = " → ".join(parts)
+        return (text[:252] + "...") if len(text) > 255 else (text or None)
+
+    async def async_release_notes(self) -> str | None:
+        """Install plan, then the packages of every source."""
+        data = self.coordinator.data
+        if data is None:
+            return None
+        sources, auto, manual = self._pending()
+        errors = [b for b in data.backends.values() if b.error]
+        if not sources and not auto and not manual and not errors:
+            return "Cap actualització pendent."
+        out: list[str] = []
+        steps = [
+            f"**{BACKEND_LABELS.get(b.key, b.key)}** — {_plural(len(b.packages), 'paquet', 'paquets')}"
+            for b in sources
+        ] + [f"**Contenidor {c.name}** — `{c.image}`" for c in auto]
+        if steps:
+            out.append(
+                "*Instal·lar* ho fa tot en una sola tasca a l'ordinador, **una font darrere "
+                "l'altra i mai a la vegada**, en aquest ordre:\n\n"
+                + "\n".join(f"{i}. {s}" for i, s in enumerate(steps, 1))
+            )
+            if any(b.key in SYSTEM_BACKENDS for b in sources):
+                out.append(
+                    "Primer els paquets del sistema; si fallen, **s'atura** i no s'instal·la "
+                    "res més (ni AUR, ni Flatpak/Snap, ni contenidors). La tasca continua "
+                    "encara que Home Assistant es reiniciï."
+                )
+        if manual:
+            out.append(
+                "**Cal fer a mà** (contenidors que no són de compose/quadlet): "
+                + ", ".join(f"{c.name} (`{c.image}`)" for c in manual)
+            )
+        fw = data.backends.get(BACKEND_FIRMWARE)
+        if fw and fw.packages:
+            out.append("El **firmware** (fwupd) no s'inclou: té la seva pròpia entitat.")
+        for b in errors:
+            out.append(f"**Error comprovant {BACKEND_LABELS.get(b.key, b.key)}:** `{b.error}`")
+        for b in sources:
+            out.append(f"### {BACKEND_LABELS.get(b.key, b.key)}\n\n{_package_table(b.packages)}")
+        if auto or manual:
+            rows = "\n".join(
+                f"| {c.name} | `{c.image}` | {'sí' if c.install_command else 'no'} |"
+                for c in auto + manual
+            )
+            out.append(f"### Contenidors\n\n| Nom | Imatge | Automàtic |\n|---|---|---|\n{rows}")
+        return "\n\n".join(out)
+
+    async def async_install(self, version: str | None, backup: bool, **kwargs: Any) -> None:
+        """Everything, in order."""
+        if not self.coordinator.pending_targets():
+            raise HomeAssistantError(
+                "No hi ha res que es pugui instal·lar automàticament (mira les notes)"
+            )
+        await self.coordinator.async_install_all()
+
+
 class PackagesUpdate(_Base):
     """Pending updates of one package manager."""
 
     _attr_supported_features = UpdateEntityFeature.INSTALL | UpdateEntityFeature.RELEASE_NOTES
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, entry: GLConfigEntry, rt, backend: str) -> None:
         """Initialize."""
@@ -75,7 +230,9 @@ class PackagesUpdate(_Base):
         self._attr_translation_key = backend
         self._attr_title = BACKEND_LABELS.get(backend, backend)
         if backend == BACKEND_FIRMWARE:
+            # Not part of "update all": stays visible on its own.
             self._attr_supported_features = UpdateEntityFeature.RELEASE_NOTES
+            self._attr_entity_registry_enabled_default = True
 
     @property
     def _result(self):
@@ -131,16 +288,14 @@ class PackagesUpdate(_Base):
             return f"**Error:** `{res.error}`"
         if not res.packages:
             return "Cap actualització pendent."
-        rows = "\n".join(
-            f"| {p.name} | {p.current or ''} | {p.new or ''} |" for p in res.packages
-        )
-        return f"| Paquet | Actual | Nova |\n|---|---|---|\n{rows}"
+        return _package_table(res.packages)
 
 
 class ContainerUpdate(_Base):
     """Newer image available for a container."""
 
     _attr_translation_key = "container"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, entry: GLConfigEntry, rt, key: str) -> None:
         """Initialize."""

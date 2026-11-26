@@ -267,6 +267,9 @@
       },
       "ostree": {
         "name": "System image (rpm-ostree / bootc)"
+      },
+      "system": {
+        "name": "System updates"
       }
     },
     "select": {
@@ -385,6 +388,24 @@
         "remove_old_key": {
           "name": "Remove the old key",
           "description": "Remove from the computer the per-computer key that this integration generated before."
+        }
+      }
+    }
+  },
+  "issues": {
+    "reboot_required": {
+      "title": "{name} needs a reboot",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Reboot {name}",
+            "description": "**{name}** is running software older than what is installed, so the changes only take effect after a reboot:\n\n{reasons}\n\nReboot **{name}** now? Unsaved work on it will be lost."
+          }
+        },
+        "abort": {
+          "not_loaded": "The computer is not loaded in Home Assistant.",
+          "updating": "Updates are being installed on this computer: wait until they finish.",
+          "reboot_failed": "Could not reboot {name}: {error}"
         }
       }
     }

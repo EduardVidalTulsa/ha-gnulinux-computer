@@ -267,6 +267,9 @@
       },
       "ostree": {
         "name": "系统镜像（rpm-ostree / bootc）"
+      },
+      "system": {
+        "name": "系统更新"
       }
     },
     "select": {
@@ -385,6 +388,24 @@
         "remove_old_key": {
           "name": "删除旧密钥",
           "description": "从计算机上删除本集成此前为该计算机单独生成的密钥。"
+        }
+      }
+    }
+  },
+  "issues": {
+    "reboot_required": {
+      "title": "{name} 需要重启",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "重启 {name}",
+            "description": "**{name}** 正在运行比已安装版本更旧的软件，重启后更改才会生效：\n\n{reasons}\n\n立即重启 **{name}**？未保存的工作将丢失。"
+          }
+        },
+        "abort": {
+          "not_loaded": "该计算机未在 Home Assistant 中加载。",
+          "updating": "此计算机正在安装更新：请等待完成。",
+          "reboot_failed": "无法重启 {name}：{error}"
         }
       }
     }

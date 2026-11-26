@@ -19,20 +19,24 @@ from homeassistant.exceptions import (
     Unauthorized,
 )
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 
 from .client import CannotConnect, LinuxClient, fetch_host_key, load_private_key
 from .const import (
     AUTH_PASSWORD,
+    BACKEND_FIRMWARE,
     CONF_AUTH_METHOD,
     CONF_HOST_KEY,
     CONF_KEY_PATH,
+    CONF_MACHINE_ID,
     CONF_SUDO_PASSWORD,
     DEFAULT_PORT,
     DOMAIN,
     UNIT_COMMANDS,
 )
-from .coordinator import Runtime, StatusCoordinator, UpdatesCoordinator
+from .coordinator import Runtime, StatusCoordinator, UpdatesCoordinator, reboot_issue_id
 from .keys import async_use_shared_key
 
 _LOGGER = logging.getLogger(__name__)
@@ -231,6 +235,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: GLConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_options_updated))
     return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: GLConfigEntry) -> bool:
+    """1.1 → 1.2: one "System" update entity per computer replaces the per-source ones.
+
+    The per-source / per-container update entities are disabled (they can be
+    enabled again), so Settings lists each computer once. Firmware stays.
+    """
+    if entry.version > 1:
+        return False
+    if entry.minor_version < 2:
+        registry = er.async_get(hass)
+        mid = entry.data.get(CONF_MACHINE_ID, "")
+        keep = f"{mid}_updates_{BACKEND_FIRMWARE}"
+        for ent in er.async_entries_for_config_entry(registry, entry.entry_id):
+            if (
+                ent.domain == "update"
+                and ent.disabled_by is None
+                and ent.unique_id != keep
+                and ent.unique_id.startswith((f"{mid}_updates_", f"{mid}_container_"))
+            ):
+                registry.async_update_entity(
+                    ent.entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION
+                )
+        hass.config_entries.async_update_entry(entry, minor_version=2)
+    return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: GLConfigEntry) -> None:
+    """Forget the repair issue of a removed computer."""
+    ir.async_delete_issue(hass, DOMAIN, reboot_issue_id(entry.entry_id))
 
 
 async def _options_updated(hass: HomeAssistant, entry: GLConfigEntry) -> None:
