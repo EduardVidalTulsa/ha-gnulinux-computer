@@ -1,5 +1,7 @@
 # GNU+Linux Computer for Home Assistant
 
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/integration)
+
 <img src="custom_components/gnulinux_computer/brand/icon.png" alt="GNU+Linux Computer" width="96" align="right">
 
 Manage your GNU/Linux computers from Home Assistant over SSH: pending package
@@ -66,9 +68,12 @@ integration to keep machines updated and a companion agent on your desktop.
 
 ### Marketplace / HACS
 
-1. Open **Marketplace** (or HACS) → ⋮ → **Custom repositories**.
-2. Add `https://github.com/EduardVidalTulsa/ha-gnulinux-computer` as an **Integration**.
-3. Install **GNU+Linux Computer** and restart Home Assistant.
+GNU+Linux Computer is in the default HACS repository list, no custom repository needed:
+
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=EduardVidalTulsa&repository=ha-gnulinux-computer&category=integration)
+
+1. Open **Marketplace** (or HACS) and search for **GNU+Linux Computer**.
+2. Install it and restart Home Assistant.
 
 ### Manual
 
@@ -278,7 +283,7 @@ estat d'inactivitat/bloqueig, càmera, multimèdia, brillantor o volum; consulta
 cada 30 s en lloc de rebre avisos, i necessita accés SSH amb permisos de root.
 Les dues coses es complementen.
 
-Instal·lació: Marketplace/HACS → *Repositoris personalitzats* →
-`https://github.com/EduardVidalTulsa/ha-gnulinux-computer` (Integració).
-Després: *Configuració → Dispositius i serveis → Afegeix integració →
+Instal·lació: és a la llista per defecte de HACS, no cal afegir cap repositori
+personalitzat: Marketplace/HACS → cerca **GNU+Linux Computer** → instal·la i
+reinicia Home Assistant. Després: *Configuració → Dispositius i serveis → Afegeix integració →
 GNU+Linux Computer*. La interfície està traduïda al català.
